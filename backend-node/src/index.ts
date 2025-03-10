@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 5000;
 
 // Route principale
 app.get("/", (req, res) => {
-    res.send("✅ Serveur Node.js en TypeScript fonctionne !");
+    res.send("✅ Serveur Node.js is good!");
 });
 
 // Démarrage du serveur
