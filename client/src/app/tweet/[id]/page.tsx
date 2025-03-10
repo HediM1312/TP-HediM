@@ -9,12 +9,7 @@ import { redirect } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { TweetCard } from '@/components/TweetCard';
 import Link from 'next/link';
-
-// Ajoutez cette fonction à votre service API
-// getTweetById: async (tweetId: string) => {
-//   const response = await api.get<Tweet>(`/tweets/${tweetId}`);
-//   return response.data;
-// };
+import WebcamCapture from '@/components/WebcamCapture';
 
 export default function TweetPage() {
   const { id } = useParams();
@@ -82,6 +77,11 @@ export default function TweetPage() {
           </Link>
           <h1 className="text-xl font-bold">Tweet</h1>
         </div>
+      </div>
+
+      {/* Composant  WebcamCapture Utilisé ici */}
+      <div className="mb-4">
+        <WebcamCapture />
       </div>
 
       {loading ? (
