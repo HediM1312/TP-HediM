@@ -53,3 +53,20 @@ export interface Notification {
   read: boolean;
   created_at: string;
 }
+
+export interface EmotionReaction {
+  id: string;
+  tweet_id: string;
+  user_id: string;
+  emotion: string;
+  confidence: number;
+  created_at: string;
+}
+
+export interface EmotionReactionSummary {
+  tweet_id: string;
+  reaction_count: number;
+  reactions: {
+    [key: string]: number;
+  };
+}

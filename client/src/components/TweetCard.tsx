@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tweet } from '@/types';
 import Link from 'next/link';
 import { likeTweet, unlikeTweet, checkLikeStatus } from '@/services/api';
 import { CommentSection } from '@/components/CommentSection';
+import WebcamCapture from '@/components/WebcamCapture';
+import EmotionReactions from '@/components/EmotionReactions';
+import { useAuth } from '@/context/AppContext';
 
 interface TweetCardProps {
   tweet: Tweet;
@@ -10,10 +14,15 @@ interface TweetCardProps {
 }
 
 export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) => {
+  const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(tweet.like_count);
   const [showComments, setShowComments] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showWebcam, setShowWebcam] = useState(false);
+  const [userReaction, setUserReaction] = useState<string | undefined>(undefined);
+  const [isReacting, setIsReacting] = useState(false);
+  const webcamContainerRef = useRef<HTMLDivElement>(null);
 
   // Format date without date-fns
   const formatDate = (dateString: string) => {
@@ -33,7 +42,26 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
     };
 
     checkLiked();
+    fetchUserReaction();
   }, [tweet.id]);
+
+  // Récupérer la réaction de l'utilisateur pour ce tweet
+  const fetchUserReaction = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/tweets/${tweet.id}/reactions`);
+      if (response.ok) {
+        const reactions = await response.json();
+        const userReaction = reactions.find((r: any) => r.user_id === user.id);
+        if (userReaction) {
+          setUserReaction(userReaction.emotion);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user reaction:', error);
+    }
+  };
 
   // Gérer le clic sur le bouton de like
   const handleLikeToggle = async () => {
@@ -67,6 +95,57 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
     setShowComments(!showComments);
   };
 
+  // Gérer l'affichage de la webcam pour réagir
+  const toggleReaction = () => {
+    setShowWebcam(!showWebcam);
+    
+    // Scroll to the webcam if opening
+    if (!showWebcam && webcamContainerRef.current) {
+      setTimeout(() => {
+        webcamContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+  };
+
+  // Gérer la capture d'image pour réaction
+  const handleImageCaptured = async (imageData: string) => {
+    if (!user) return;
+    
+    try {
+      setIsReacting(true);
+      
+      const response = await fetch(`http://localhost:8000/api/tweets/${tweet.id}/reactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tweet_id: tweet.id,
+          user_id: user.id,
+          image: imageData
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const reaction = await response.json();
+      console.log('Réaction enregistrée:', reaction);
+      setUserReaction(reaction.emotion);
+      
+      // Fermer la webcam après quelques secondes
+      setTimeout(() => {
+        setShowWebcam(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error registering reaction:', error);
+    } finally {
+      setIsReacting(false);
+    }
+  };
+
   // Mettre à jour le compteur de commentaires
   const handleCommentAdded = () => {
     if (onTweetUpdate) {
@@ -97,6 +176,9 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
             </span>
           </div>
           <p className="mt-1 text-gray-900">{tweet.content}</p>
+          
+          {/* Affichage des réactions émotionnelles */}
+          <EmotionReactions tweetId={tweet.id} userReaction={userReaction} />
           
           {/* Actions */}
           <div className="mt-3 flex space-x-8">
@@ -129,7 +211,35 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
               </svg>
               <span>{likeCount}</span>
             </button>
+            
+            {/* Bouton réaction émotionnelle */}
+            <button 
+              onClick={toggleReaction}
+              className={`flex items-center ${showWebcam ? 'text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+              </svg>
+              <span>Réagir</span>
+            </button>
           </div>
+          
+          {/* Webcam pour réaction émotionnelle */}
+          {showWebcam && (
+            <div ref={webcamContainerRef} className="mt-4 mb-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-sm font-medium mb-2">
+                {isReacting ? 
+                  "Analyse de votre réaction en cours..." : 
+                  "Exprimez votre réaction à ce tweet"
+                }
+              </div>
+              <WebcamCapture 
+                onImageCaptured={handleImageCaptured} 
+                autoSendToBackend={false}
+                compact={true} 
+              />
+            </div>
+          )}
           
           {/* Section commentaires */}
           {showComments && (

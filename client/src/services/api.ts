@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Tweet, User, Like, Comment } from '@/types';
+import { EmotionReaction, EmotionReactionSummary } from '@/types';
 
 const API_URL = 'http://localhost:8000';
 
@@ -117,4 +118,58 @@ export const markAllNotificationsAsRead = async () => {
 export const getTweetById = async (tweetId: string) => {
   const response = await api.get<Tweet>(`/tweets/${tweetId}`);
   return response.data;
+};
+
+
+/**
+ * Récupère le résumé des réactions émotionnelles pour un tweet
+ */
+export const getTweetReactionsSummary = async (tweetId: string): Promise<EmotionReactionSummary> => {
+  const response = await fetch(`http://localhost:8000/api/tweets/${tweetId}/reactions/summary`);
+  
+  if (!response.ok) {
+    throw new Error(`Erreur lors de la récupération des réactions: ${response.status}`);
+  }
+  
+  return response.json();
+};
+
+/**
+ * Récupère toutes les réactions émotionnelles pour un tweet
+ */
+export const getTweetReactions = async (tweetId: string): Promise<EmotionReaction[]> => {
+  const response = await fetch(`http://localhost:8000/api/tweets/${tweetId}/reactions`);
+  
+  if (!response.ok) {
+    throw new Error(`Erreur lors de la récupération des réactions: ${response.status}`);
+  }
+  
+  return response.json();
+};
+
+/**
+ * Ajoute une réaction émotionnelle à un tweet basée sur une image
+ */
+export const addEmotionReaction = async (
+  tweetId: string, 
+  userId: string, 
+  imageData: string
+): Promise<EmotionReaction> => {
+  const response = await fetch(`http://localhost:8000/api/tweets/${tweetId}/reactions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      tweet_id: tweetId,
+      user_id: userId,
+      image: imageData
+    }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Erreur lors de l'ajout de la réaction: ${response.status}`);
+  }
+  
+  return response.json();
 };

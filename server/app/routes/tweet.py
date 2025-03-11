@@ -14,6 +14,7 @@ import base64
 import cv2
 import numpy as np
 from fer import FER
+import uuid
 
 router = APIRouter()
 
@@ -242,3 +243,161 @@ async def detect_emotion(data: ImageData):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'analyse: {str(e)}")
+
+
+
+class EmotionReactionCreate(BaseModel):
+    tweet_id: str
+    user_id: str
+    image: str  # Base64 encoded image
+
+class EmotionReaction(BaseModel):
+    id: str
+    tweet_id: str
+    user_id: str
+    emotion: str
+    confidence: float
+    created_at: datetime
+
+# Pour stocker les réactions (remplacez par votre base de données réelle)
+emotion_reactions = []
+
+# Initialiser le détecteur d'émotions
+emotion_detector = FER(mtcnn=True)
+
+@router.post("/api/tweets/{tweet_id}/reactions", response_model=EmotionReaction)
+async def create_emotion_reaction(tweet_id: str, data: EmotionReactionCreate):
+    try:
+        # Décoder l'image base64
+        image_data = data.image.split(',')[1]  # Enlever le préfixe
+        image_bytes = base64.b64decode(image_data)
+        
+        # Convertir en format OpenCV
+        image_array = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        
+        # Détecter les émotions
+        emotions = emotion_detector.detect_emotions(image)
+        
+        # Si aucun visage n'est détecté
+        if not emotions:
+            raise HTTPException(status_code=400, detail="Aucun visage détecté dans l'image")
+        
+        # Utiliser la première détection (généralement il n'y a qu'un visage)
+        face_emotions = emotions[0]['emotions']
+        
+        # Trouver l'émotion dominante
+        dominant_emotion = max(face_emotions.items(), key=lambda x: x[1])
+        emotion_name = dominant_emotion[0]
+        confidence = dominant_emotion[1]
+        
+        # Créer la réaction
+        # reaction = EmotionReaction(
+        #     id=str(uuid.uuid4()),
+        #     tweet_id=tweet_id,
+        #     user_id=data.user_id,
+        #     emotion=emotion_name,
+        #     confidence=confidence,
+        #     created_at=datetime.now()
+        # )
+        
+        # # Stocker la réaction (ou remplacer si l'utilisateur a déjà réagi)
+        # # Supprimer les réactions existantes de l'utilisateur pour ce tweet
+        # global emotion_reactions
+        # emotion_reactions = [r for r in emotion_reactions 
+        #                     if not (r.tweet_id == tweet_id and r.user_id == data.user_id)]
+
+        reaction_id = str(uuid.uuid4())
+        reaction_data = {
+            "_id": ObjectId(),  # MongoDB utilise _id comme identifiant
+            "tweet_id": ObjectId(tweet_id),  # Convertir en ObjectId pour MongoDB
+            "user_id": data.user_id,
+            "emotion": emotion_name,
+            "confidence": confidence,
+            "created_at": datetime.now()
+        }
+        
+        # Supprimer toute réaction existante de cet utilisateur pour ce tweet
+        db.emotion_reactions.delete_many({
+            "tweet_id": ObjectId(tweet_id),
+            "user_id": data.user_id
+        })
+        
+        # Insérer la nouvelle réaction en base de données
+        db.emotion_reactions.insert_one(reaction_data)
+
+
+        response_data = {
+            "id": str(reaction_data["_id"]),
+            "tweet_id": tweet_id,  # Retourner la valeur string originale
+            "user_id": reaction_data["user_id"],
+            "emotion": reaction_data["emotion"],
+            "confidence": reaction_data["confidence"],
+            "created_at": reaction_data["created_at"]
+        }
+
+        
+        return EmotionReaction(**response_data)
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'analyse: {str(e)}")
+
+@router.get("/api/tweets/{tweet_id}/reactions", response_model=List[EmotionReaction])
+async def get_tweet_reactions(tweet_id: str):
+    try:
+        # Récupérer les réactions depuis la base de données
+        reactions = list(db.emotion_reactions.find({"tweet_id": ObjectId(tweet_id)}))
+        
+        # Convertir les objets MongoDB en format compatible avec Pydantic
+        result = []
+        for reaction in reactions:
+            result.append({
+                "id": str(reaction["_id"]),
+                "tweet_id": tweet_id,
+                "user_id": reaction["user_id"],
+                "emotion": reaction["emotion"],
+                "confidence": reaction["confidence"],
+                "created_at": reaction["created_at"]
+            })
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des réactions: {str(e)}")
+
+
+@router.get("/api/tweets/{tweet_id}/reactions/summary")
+async def get_tweet_reactions_summary(tweet_id: str):
+    try:
+        # Récupérer les réactions depuis la base de données
+        reactions = list(db.emotion_reactions.find({"tweet_id": ObjectId(tweet_id)}))
+        
+        # Compter le nombre de chaque émotion
+        summary = {}
+        for reaction in reactions:
+            emotion = reaction["emotion"]
+            if emotion in summary:
+                summary[emotion] += 1
+            else:
+                summary[emotion] = 1
+        
+        return {
+            "tweet_id": tweet_id,
+            "reaction_count": len(reactions),
+            "reactions": summary
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du résumé des réactions: {str(e)}")
+    
+@router.delete("/api/tweets/{tweet_id}/reactions/{user_id}", status_code=204)
+async def delete_emotion_reaction(tweet_id: str):
+    try:
+        result = db.emotion_reactions.delete_one({
+            "tweet_id": ObjectId(tweet_id)
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Réaction non trouvée")
+            
+        return None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression: {str(e)}")
