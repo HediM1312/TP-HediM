@@ -1,39 +1,73 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 interface WebcamCaptureProps {
   onImageCaptured?: (imageData: string) => void;
+  autoSendToBackend?: boolean;
 }
 
-const WebcamCapture = ({ onImageCaptured }: WebcamCaptureProps) => {
+const WebcamCapture = ({ 
+  onImageCaptured, 
+  autoSendToBackend = false
+}: WebcamCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState<boolean>(false);
+
+  // Démarrer la vidéo lorsque le stream est prêt et attaché à la vidéo
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      // L'élément vidéo jouera automatiquement grâce à l'attribut autoPlay
+      console.log('Stream connecté au lecteur vidéo');
+    }
+  }, [stream, videoRef]);
+
+  // Nettoyer le flux média lors du démontage du composant
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        console.log('Nettoyage du stream lors du démontage');
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   const requestWebcamAccess = async () => {
     try {
       setIsLoading(true);
       setError(null);
+      setIsVideoReady(false);
       
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      console.log('Demande d\'accès à la webcam...');
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: {
-          width: 400,
-          height: 400,
-          facingMode: "user",
-          aspectRatio: 1
+          width: { ideal: 400 },
+          height: { ideal: 400 },
+          facingMode: "user"
         }
       });
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setHasPermission(true);
-      }
-    } catch (err) {
+      console.log('Accès à la webcam autorisé, tracks:', mediaStream.getTracks().length);
+      setStream(mediaStream);
+      setHasPermission(true);  // Définir immédiatement sur true dès que nous avons le stream
+      
+    } catch (err: any) {
       console.error("Erreur d'accès à la webcam:", err);
-      setError("Impossible d'accéder à la webcam. Vérifiez vos permissions ou votre matériel.");
+      
+      if (err.name === 'NotAllowedError') {
+        setError("Accès à la webcam refusé. Veuillez autoriser l'accès dans les paramètres de votre navigateur.");
+      } else if (err.name === 'NotFoundError') {
+        setError("Aucune webcam détectée sur votre appareil.");
+      } else {
+        setError(`Impossible d'accéder à la webcam: ${err.message || 'Erreur inconnue'}`);
+      }
+      
       setHasPermission(false);
     } finally {
       setIsLoading(false);
@@ -41,37 +75,72 @@ const WebcamCapture = ({ onImageCaptured }: WebcamCaptureProps) => {
   };
 
   const stopWebcam = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
+    if (stream) {
+      console.log('Arrêt de la webcam');
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
       setHasPermission(false);
       setCapturedImage(null);
+      setIsVideoReady(false);
+      
+      // S'assurer que la vidéo est bien arrêtée
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     }
   };
 
+  const handleVideoReady = () => {
+    console.log('Vidéo prête à être affichée');
+    setIsVideoReady(true);
+  };
+
   const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('Références vidéo ou canvas non disponibles');
+      return;
+    }
 
     try {
-      const context = canvasRef.current.getContext('2d');
-      if (!context) return;
+      console.log('Capture d\'image en cours...');
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      // Utiliser les dimensions réelles de la vidéo
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      
+      if (videoWidth === 0 || videoHeight === 0) {
+        console.error('Dimensions vidéo invalides');
+        setError("La vidéo n'est pas correctement initialisée");
+        return;
+      }
+      
+      console.log(`Dimensions vidéo: ${videoWidth}x${videoHeight}`);
+      
+      // Ajuster les dimensions du canvas
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
 
-      context.drawImage(
-        videoRef.current,
-        0,
-        0,
-        canvasRef.current.width,
-        canvasRef.current.height
-      );
+      const context = canvas.getContext('2d');
+      if (!context) {
+        console.error('Impossible d\'obtenir le contexte 2D');
+        return;
+      }
 
-      const imageData = canvasRef.current.toDataURL('image/jpeg', 0.8);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = canvas.toDataURL('image/jpeg', 0.8);
       setCapturedImage(imageData);
+      console.log('Image capturée avec succès');
       
       if (onImageCaptured) {
         onImageCaptured(imageData);
       }
 
-      sendImageToBackend(imageData);
+      if (autoSendToBackend) {
+        sendImageToBackend(imageData);
+      }
     } catch (err) {
       console.error("Erreur lors de la capture:", err);
       setError("Erreur lors de la capture de l'image");
@@ -83,6 +152,7 @@ const WebcamCapture = ({ onImageCaptured }: WebcamCaptureProps) => {
       setIsLoading(true);
       setError(null);
 
+      console.log('Envoi de l\'image au backend...');
       const response = await fetch('http://localhost:8000/api/emotion', {
         method: 'POST',
         headers: {
@@ -97,9 +167,11 @@ const WebcamCapture = ({ onImageCaptured }: WebcamCaptureProps) => {
 
       const data = await response.json();
       console.log('Réponse du backend:', data);
-    } catch (error) {
+      return data;
+    } catch (error: any) {
       console.error('Erreur lors de l\'envoi de l\'image:', error);
-      setError("Erreur lors de l'envoi de l'image");
+      setError(`Erreur lors de l'envoi de l'image: ${error.message || 'Erreur inconnue'}`);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -138,30 +210,37 @@ const WebcamCapture = ({ onImageCaptured }: WebcamCaptureProps) => {
 
       {/* Affichage webcam/image */}
       {hasPermission && (
-        <div className="relative w-full aspect-square max-w-md">
+        <div className="relative w-full aspect-square max-w-md border-2 border-gray-300 rounded-lg overflow-hidden">
           {!capturedImage ? (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="rounded-lg shadow-lg w-full h-full object-cover"
-            />
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                onCanPlay={handleVideoReady}
+                className="w-full h-full object-cover"
+              />
+              {!isVideoReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-70">
+                  <div className="animate-pulse text-gray-600">Chargement de la vidéo...</div>
+                </div>
+              )}
+            </>
           ) : (
             <img 
               src={capturedImage}
               alt="Captured"
-              className="rounded-lg shadow-lg w-full h-full object-cover"
+              className="w-full h-full object-cover"
             />
           )}
         </div>
       )}
 
-      {/* Canvas caché */}
+      {/* Canvas caché - rendu uniquement lorsque nécessaire */}
       <canvas
         ref={canvasRef}
-        width={400}
-        height={400}
-        className="hidden"
+        className="hidden" // Le canvas est caché visuellement
       />
 
       {/* Boutons d'action */}
@@ -171,16 +250,28 @@ const WebcamCapture = ({ onImageCaptured }: WebcamCaptureProps) => {
             <button
               onClick={captureImage}
               className="px-6 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={!isVideoReady}
             >
               Capturer
             </button>
           ) : (
-            <button
-              onClick={retakePhoto}
-              className="px-6 py-2 rounded-lg font-medium bg-gray-500 hover:bg-gray-600 text-white"
-            >
-              Reprendre
-            </button>
+            <>
+              <button
+                onClick={retakePhoto}
+                className="px-6 py-2 rounded-lg font-medium bg-gray-500 hover:bg-gray-600 text-white"
+              >
+                Reprendre
+              </button>
+              
+              {!autoSendToBackend && (
+                <button
+                  onClick={() => sendImageToBackend(capturedImage)}
+                  className="px-6 py-2 rounded-lg font-medium bg-green-500 hover:bg-green-600 text-white"
+                >
+                  Envoyer
+                </button>
+              )}
+            </>
           )}
           
           <button
@@ -192,9 +283,12 @@ const WebcamCapture = ({ onImageCaptured }: WebcamCaptureProps) => {
         </div>
       )}
 
-      {/* État de la webcam */}
+      {/* État de la webcam avec plus de détails */}
       <div className="text-sm text-gray-600">
-        État de la webcam : {hasPermission ? '✅ Active' : '❌ Inactive'}
+        <div>État de la webcam : {hasPermission ? '✅ Active' : '❌ Inactive'}</div>
+        {hasPermission && (
+          <div>Affichage vidéo : {isVideoReady ? '✅ Prêt' : '⏳ En chargement'}</div>
+        )}
       </div>
     </div>
   );

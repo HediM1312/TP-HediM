@@ -1,19 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AppContext';
 import { usePathname, useRouter } from 'next/navigation';
-import { FaHome, FaUser, FaSignOutAlt, FaBell } from 'react-icons/fa';
+import { FaHome, FaUser, FaSignOutAlt, FaBell, FaCamera } from 'react-icons/fa';
+import WebcamCapture from './WebcamCapture';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [showWebcam, setShowWebcam] = useState(false);
 
   const handleLogout = () => {
     logout();
     router.push('/login');
+  };
+
+  const handleImageCaptured = (imageData: string) => {
+    console.log('Image capturée avec succès');
   };
 
   if (!isAuthenticated) {
@@ -46,6 +52,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <FaBell />
                     <span>Notifications</span>
                   </Link>
+                  <button 
+                    onClick={() => setShowWebcam(!showWebcam)} 
+                    className={`flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 text-lg text-left ${showWebcam ? 'bg-gray-100 font-bold' : ''}`}
+                  >
+                    <FaCamera />
+                    <span>Caméra</span>
+                  </button>
                   <button onClick={handleLogout} className="flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 text-lg text-left">
                     <FaSignOutAlt />
                     <span>Déconnexion</span>
@@ -57,6 +70,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Main content */}
           <main className="md:col-span-3 border-l border-extralight">
+            {showWebcam && (
+              <div className="border-b border-extralight p-4">
+                <h2 className="text-xl font-bold mb-4">Caméra</h2>
+                <WebcamCapture onImageCaptured={handleImageCaptured} />
+              </div>
+            )}
             {children}
           </main>
         </div>
