@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Tweet } from '@/types';
 import Link from 'next/link';
-import { likeTweet, unlikeTweet, checkLikeStatus } from '@/services/api';
+import { likeTweet, unlikeTweet, checkLikeStatus, retweetTweet, unretweetTweet, checkRetweetStatus } from '@/services/api';
 import { CommentSection } from '@/components/CommentSection';
 import WebcamCapture from '@/components/WebcamCapture';
 import EmotionReactions from '@/components/EmotionReactions';
@@ -22,6 +22,8 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
   const [showWebcam, setShowWebcam] = useState(false);
   const [userReaction, setUserReaction] = useState<string | undefined>(undefined);
   const [isReacting, setIsReacting] = useState(false);
+  const [isRetweeted, setIsRetweeted] = useState(false);
+  const [retweetCount, setRetweetCount] = useState(tweet.retweet_count || 0);
   const webcamContainerRef = useRef<HTMLDivElement>(null);
 
   // Format date without date-fns
@@ -44,6 +46,45 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
     checkLiked();
     fetchUserReaction();
   }, [tweet.id]);
+
+  useEffect(() => {
+    const checkRetweeted = async () => {
+      try {
+        const response = await checkRetweetStatus(tweet.id);
+        setIsRetweeted(response.retweeted);
+      } catch (error) {
+        console.error('Error checking retweet status:', error);
+      }
+    };
+  
+    checkRetweeted();
+  }, [tweet.id]);
+
+  const handleRetweetToggle = async () => {
+    setIsLoading(true);
+    try {
+      if (isRetweeted) {
+        await unretweetTweet(tweet.id);
+        setRetweetCount(prev => prev - 1);
+      } else {
+        await retweetTweet(tweet.id);
+        setRetweetCount(prev => prev + 1);
+      }
+      setIsRetweeted(!isRetweeted);
+      
+      // Mettre à jour le tweet si callback fourni
+      if (onTweetUpdate) {
+        onTweetUpdate({
+          ...tweet,
+          retweet_count: isRetweeted ? retweetCount - 1 : retweetCount + 1
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling retweet:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Récupérer la réaction de l'utilisateur pour ce tweet
   const fetchUserReaction = async () => {
@@ -157,7 +198,27 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
   };
 
   return (
+    
     <div className="border-b border-extralight p-4 hover:bg-gray-50">
+              {tweet.is_retweet && (
+          <div className="mb-2 text-sm text-gray-500 flex items-center">
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              className="h-4 w-4 mr-1" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={1.5} 
+                d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" 
+              />
+            </svg>
+            <span>Retweeté par {tweet.author_username}</span>
+          </div>
+        )}
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
@@ -210,6 +271,28 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
                 <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
               </svg>
               <span>{likeCount}</span>
+            </button>
+
+            <button 
+              onClick={handleRetweetToggle}
+              disabled={isLoading}
+              className={`flex items-center ${isRetweeted ? 'text-green-500' : 'text-gray-500 hover:text-green-500'}`}
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-5 w-5 mr-1" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={1.5} 
+                  d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" 
+                />
+              </svg>
+              <span>{retweetCount}</span>
             </button>
             
             {/* Bouton réaction émotionnelle */}

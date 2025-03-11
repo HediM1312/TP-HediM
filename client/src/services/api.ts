@@ -173,3 +173,18 @@ export const addEmotionReaction = async (
   
   return response.json();
 };
+
+export const retweetTweet = async (tweetId: string) => {
+  const response = await api.post<Tweet>(`/tweets/${tweetId}/retweet`);
+  return response.data;
+};
+
+export const unretweetTweet = async (tweetId: string) => {
+  const response = await api.delete(`/tweets/${tweetId}/unretweet`);
+  return response.data;
+};
+
+export const checkRetweetStatus = async (tweetId: string) => {
+  const response = await api.get<{ retweeted: boolean }>(`/tweets/${tweetId}/retweet_status`);
+  return response.data;
+};

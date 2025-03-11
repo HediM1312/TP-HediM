@@ -15,6 +15,10 @@ export interface Tweet {
   created_at: string;
   like_count: number;
   comment_count: number;
+  retweet_count: number; // Ajout
+  is_retweet: boolean; // Ajout
+  original_tweet_id?: string; // Ajout
+  original_author_username?: string; // Ajout
 }
 
 export interface Comment {
@@ -45,7 +49,7 @@ export interface Notification {
   recipient_id: string;
   sender_id: string;
   sender_username: string;
-  type: 'like' | 'comment';
+  type: 'like' | 'comment' | 'retweet'; // Ajout du type retweet
   tweet_id: string;
   tweet_content: string;
   comment_id?: string;

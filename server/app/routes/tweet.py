@@ -401,3 +401,95 @@ async def delete_emotion_reaction(tweet_id: str):
         return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression: {str(e)}")
+    
+
+@router.post("/tweets/{tweet_id}/retweet", response_model=Tweet)
+async def retweet_tweet(tweet_id: str, current_user: User = Depends(get_current_user)):
+    # Vérifier si le tweet existe
+    original_tweet = db.tweets.find_one({"_id": ObjectId(tweet_id)})
+    if not original_tweet:
+        raise HTTPException(status_code=404, detail="Tweet not found")
+    
+    # Vérifier si l'utilisateur a déjà retweeté ce tweet
+    existing_retweet = db.tweets.find_one({
+        "original_tweet_id": tweet_id,
+        "author_id": current_user.id,
+        "is_retweet": True
+    })
+    
+    if existing_retweet:
+        raise HTTPException(status_code=400, detail="Tweet already retweeted")
+    
+    # Créer un retweet
+    retweet_data = {
+        "author_id": current_user.id,
+        "author_username": current_user.username,
+        "content": original_tweet["content"],
+        "media_url": original_tweet.get("media_url"),
+        "is_retweet": True,
+        "original_tweet_id": tweet_id,
+        "original_author_username": original_tweet["author_username"],
+        "created_at": datetime.utcnow(),
+        "like_count": 0,
+        "comment_count": 0,
+        "retweet_count": 0
+    }
+    
+    result = db.tweets.insert_one(retweet_data)
+    
+    # Mettre à jour le compteur de retweets du tweet original
+    db.tweets.update_one(
+        {"_id": ObjectId(tweet_id)},
+        {"$inc": {"retweet_count": 1}}
+    )
+    
+    # Créer une notification (sauf si l'utilisateur retweete son propre tweet)
+    if original_tweet["author_id"] != current_user.id:
+        notification_data = {
+            "recipient_id": original_tweet["author_id"],
+            "sender_id": current_user.id,
+            "sender_username": current_user.username,
+            "type": "retweet",
+            "tweet_id": tweet_id,
+            "tweet_content": original_tweet["content"][:50] + ("..." if len(original_tweet["content"]) > 50 else ""),
+            "read": False,
+            "created_at": datetime.utcnow()
+        }
+        db.notifications.insert_one(notification_data)
+    
+    # Préparer les données pour le retour avec l'ID
+    response_data = {**retweet_data, "id": str(result.inserted_id)}
+    return Tweet(**response_data)
+
+@router.delete("/tweets/{tweet_id}/unretweet", status_code=status.HTTP_204_NO_CONTENT)
+async def unretweet_tweet(tweet_id: str, current_user: User = Depends(get_current_user)):
+    # Trouver le retweet de l'utilisateur pour ce tweet
+    retweet = db.tweets.find_one({
+        "original_tweet_id": tweet_id,
+        "author_id": current_user.id,
+        "is_retweet": True
+    })
+    
+    if not retweet:
+        raise HTTPException(status_code=404, detail="Retweet not found")
+    
+    # Supprimer le retweet
+    db.tweets.delete_one({"_id": retweet["_id"]})
+    
+    # Mettre à jour le compteur de retweets du tweet original
+    db.tweets.update_one(
+        {"_id": ObjectId(tweet_id)},
+        {"$inc": {"retweet_count": -1}}
+    )
+    
+    return None
+
+@router.get("/tweets/{tweet_id}/retweet_status")
+async def check_retweet_status(tweet_id: str, current_user: User = Depends(get_current_user)):
+    retweet = db.tweets.find_one({
+        "original_tweet_id": tweet_id,
+        "author_id": current_user.id,
+        "is_retweet": True
+    })
+    
+    return {"retweeted": retweet is not None}
