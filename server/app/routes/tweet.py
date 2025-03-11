@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from typing import List
 from bson import ObjectId
 from app.database import db
@@ -9,6 +10,10 @@ from app.models.user import User
 from app.models.notification import Notification
 from app.services.auth import get_current_user
 from datetime import datetime
+import base64
+import cv2
+import numpy as np
+from fer import FER
 
 router = APIRouter()
 
@@ -191,3 +196,49 @@ async def unlike_tweet(tweet_id: str, current_user: User = Depends(get_current_u
     )
     
     return None
+
+
+class ImageData(BaseModel):
+    image: str  # Base64 encoded image
+
+# Initialiser le détecteur d'émotions
+emotion_detector = FER(mtcnn=True)  # MTCNN pour une détection plus précise
+
+@router.post("/api/emotion")
+async def detect_emotion(data: ImageData):
+    try:
+        # Décoder l'image base64
+        image_data = data.image.split(',')[1]  # Enlever le préfixe "data:image/jpeg;base64,"
+        image_bytes = base64.b64decode(image_data)
+        
+        # Convertir en format OpenCV
+        image_array = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        
+        # Détecter les émotions
+        emotions = emotion_detector.detect_emotions(image)
+        
+        # Si aucun visage n'est détecté
+        if not emotions:
+            return {"success": True, "message": "Aucun visage détecté", "emotions": []}
+        
+        # Extraire le résultat principal
+        result = []
+        for face in emotions:
+            top_emotion = max(face['emotions'].items(), key=lambda x: x[1])
+            face_result = {
+                "box": face['box'],  # Position du visage
+                "emotions": face['emotions'],  # Toutes les émotions détectées
+                "dominant_emotion": top_emotion[0],  # Émotion dominante
+                "confidence": top_emotion[1]  # Niveau de confiance
+            }
+            result.append(face_result)
+        
+        return {
+            "success": True,
+            "message": "Analyse réussie",
+            "emotions": result
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'analyse: {str(e)}")
