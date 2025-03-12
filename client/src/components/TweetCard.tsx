@@ -31,6 +31,35 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
   const webcamContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+
+  const renderContent = (content: string) => {
+    // Diviser le contenu en fonction des mentions
+    const parts = content.split(/(@\w+)/g);
+    
+    return (
+      <p className="mt-2 text-white">
+        {parts.map((part, index) => {
+          if (part.match(/^@\w+/)) {
+            // C'est une mention, rendre en couleur et avec lien
+            const username = part.substring(1); // Enlever le @
+            return (
+              <Link 
+                key={index} 
+                href={`/profile/${username}`}
+                className="text-purple-400 hover:underline"
+              >
+                {part}
+              </Link>
+            );
+          }
+          // Texte normal
+          return <span key={index}>{part}</span>;
+        })}
+      </p>
+    );
+  };
+  
+
   const getMediaType = (mediaUrl?: string): 'image' | 'video' | null => {
     if (!mediaUrl) return null;
     
@@ -253,7 +282,7 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
             </span>
           </div>
 
-          <p className="mt-2 text-white">{tweet.content}</p>
+          <p className="mt-2 text-white">{renderContent(tweet.content)}</p>
 
           {/* Affichage des médias */}
           {tweet.media_id && tweet.media_type && (

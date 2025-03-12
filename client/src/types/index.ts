@@ -63,7 +63,7 @@ export interface Notification {
   recipient_id: string;
   sender_id: string;
   sender_username: string;
-  type: 'like' | 'comment' | 'retweet' | 'follow'; // Ajout du type retweet
+  type: 'like' | 'comment' | 'retweet' | 'follow' | 'mention'; // Ajout du type retweet
   tweet_id: string;
   tweet_content: string;
   comment_id?: string;

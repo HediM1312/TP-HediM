@@ -17,10 +17,9 @@ from fer import FER
 import uuid
 import shutil
 from pathlib import Path
+import re
 
 router = APIRouter()
-
-
 
 # Configurer un dossier pour les médias uploadés
 MEDIA_DIR = Path("media")
@@ -64,6 +63,14 @@ async def save_media_file(file: UploadFile) -> Optional[str]:
     # Return the relative URL path
     return f"/media/{media_type}/{filename}"
 
+def extract_mentions(content: str) -> list:
+    """
+    Extrait les mentions (@username) du contenu d'un tweet
+    """
+    # Pattern pour capturer les mentions: un @ suivi d'un nom d'utilisateur (lettres, chiffres, underscore)
+    mentions_pattern = r'@(\w+)'
+    return re.findall(mentions_pattern, content)
+
 @router.post("/tweets", response_model=Tweet)
 async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user)):
 
@@ -78,7 +85,29 @@ async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user
         "is_retweet": False
     }
     result = db.tweets.insert_one(tweet_data)
-    return Tweet(id=str(result.inserted_id), **tweet_data)
+    tweet_id = str(result.inserted_id)
+    tweet_data["id"] = tweet_id
+    
+    # Extraire et traiter les mentions
+    mentions = extract_mentions(tweet.content)
+    for username in mentions:
+        # Vérifier si l'utilisateur mentionné existe
+        mentioned_user = db.users.find_one({"username": username})
+        if mentioned_user and str(mentioned_user["_id"]) != current_user.id:  # Ne pas notifier l'auteur du tweet
+            # Créer une notification pour l'utilisateur mentionné
+            notification_data = {
+                "recipient_id": str(mentioned_user["_id"]),
+                "sender_id": current_user.id,
+                "sender_username": current_user.username,
+                "type": "mention",
+                "tweet_id": tweet_id,
+                "tweet_content": tweet.content[:50] + ("..." if len(tweet.content) > 50 else ""),
+                "read": False,
+                "created_at": datetime.utcnow()
+            }
+            db.notifications.insert_one(notification_data)
+    
+    return Tweet(**tweet_data)
 
 @router.post("/tweets/with-media", response_model=Tweet)
 async def create_tweet_with_media(
@@ -111,7 +140,27 @@ async def create_tweet_with_media(
     }
     
     result = db.tweets.insert_one(tweet_data)
-    tweet_data["id"] = str(result.inserted_id)
+    tweet_id = str(result.inserted_id)
+    tweet_data["id"] = tweet_id
+    
+    # Extraire et traiter les mentions
+    mentions = extract_mentions(content)
+    for username in mentions:
+        # Vérifier si l'utilisateur mentionné existe
+        mentioned_user = db.users.find_one({"username": username})
+        if mentioned_user and str(mentioned_user["_id"]) != current_user.id:  # Ne pas notifier l'auteur du tweet
+            # Créer une notification pour l'utilisateur mentionné
+            notification_data = {
+                "recipient_id": str(mentioned_user["_id"]),
+                "sender_id": current_user.id,
+                "sender_username": current_user.username,
+                "type": "mention",
+                "tweet_id": tweet_id,
+                "tweet_content": content[:50] + ("..." if len(content) > 50 else ""),
+                "read": False,
+                "created_at": datetime.utcnow()
+            }
+            db.notifications.insert_one(notification_data)
     
     return Tweet(**tweet_data)
 

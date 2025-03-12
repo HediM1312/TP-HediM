@@ -284,3 +284,24 @@ async def get_user_retweeted_tweets(username: str):
         retweeted_tweets.append(Tweet(**tweet))
     
     return retweeted_tweets
+
+@router.get("/users/search", response_model=List[User])
+async def search_users(query: str):
+    """
+    Recherche des utilisateurs par nom d'utilisateur.
+    Utilisé pour l'autocomplétion des mentions (@username)
+    """
+    # Effectuer une recherche insensible à la casse
+    users = []
+    # Utiliser une expression régulière pour rechercher les noms d'utilisateur qui commencent par la requête
+    regex_pattern = f"^{query}"
+    for user in db.users.find({"username": {"$regex": regex_pattern, "$options": "i"}}).limit(5):
+        users.append({
+            "id": str(user["_id"]),
+            "username": user["username"],
+            "email": user["email"],
+            "created_at": user["created_at"],
+            # Ne pas inclure le mot de passe
+        })
+    
+    return users
