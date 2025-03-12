@@ -250,3 +250,37 @@ async def get_user_stats(username: str):
         "followers_count": user.get("followers_count", 0),
         "following_count": user.get("following_count", 0)
     }
+
+@router.get("/users/{username}/liked-tweets", response_model=List[Tweet])
+async def get_user_liked_tweets(username: str):
+    # Vérifier si l'utilisateur existe
+    user = db.users.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    user_id = str(user["_id"])
+    
+    # Récupérer tous les likes de l'utilisateur
+    likes = list(db.likes.find({"user_id": user_id}))
+    tweet_ids = [ObjectId(like["tweet_id"]) for like in likes]
+    
+    # Récupérer les tweets correspondants
+    liked_tweets = []
+    if tweet_ids:
+        for tweet in db.tweets.find({"_id": {"$in": tweet_ids}}).sort("created_at", -1):
+            tweet["id"] = str(tweet["_id"])
+            del tweet["_id"]
+            liked_tweets.append(Tweet(**tweet))
+    
+    return liked_tweets
+
+@router.get("/users/{username}/retweeted-tweets", response_model=List[Tweet])
+async def get_user_retweeted_tweets(username: str):
+    # Récupérer les retweets (tweets où is_retweet est True et author_username est l'utilisateur)
+    retweeted_tweets = []
+    for tweet in db.tweets.find({"author_username": username, "is_retweet": True}).sort("created_at", -1):
+        tweet["id"] = str(tweet["_id"])
+        del tweet["_id"]
+        retweeted_tweets.append(Tweet(**tweet))
+    
+    return retweeted_tweets

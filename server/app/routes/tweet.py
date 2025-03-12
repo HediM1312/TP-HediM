@@ -71,9 +71,6 @@ async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user
         "author_id": current_user.id,
         "author_username": current_user.username,
         "content": tweet.content,
-        "media_url": tweet.media_url if tweet.media_url else None,
-        "media_type": "image" if tweet.media_url and any(ext in tweet.media_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']) else 
-                     "video" if tweet.media_url and any(ext in tweet.media_url.lower() for ext in ['.mp4', '.webm', '.mov', '.avi']) else None,
         "created_at": datetime.utcnow(),
         "like_count": 0,
         "comment_count": 0,
