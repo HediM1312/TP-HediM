@@ -6,8 +6,9 @@ import { useAuth } from '@/context/AppContext';
 import { motion } from 'framer-motion';
 
 interface TweetFormProps {
-  onSubmit: (content: string, mediaFile?: File) => Promise<void>;
+  onSubmit: (content: string, mediaFile?: File, tags?: string[]) => Promise<void>;
 }
+
 
 export const TweetForm: React.FC<TweetFormProps> = ({ onSubmit }) => {
   const [content, setContent] = useState('');
@@ -61,21 +62,25 @@ export const TweetForm: React.FC<TweetFormProps> = ({ onSubmit }) => {
 
 
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!content.trim() && !mediaFile) return;
-    
-    setIsSubmitting(true);
-    try {
-      await onSubmit(content, mediaFile || undefined);
-      setContent('');
-      removeMedia();
-    } catch (error) {
-      console.error('Error submitting tweet:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!content.trim() && !mediaFile) return;
+
+  console.log("🚀 Tags récupérés avant envoi :", tags);  // ✅ Vérifie si les tags sont bien stockés
+
+  setIsSubmitting(true);
+  try {
+    await onSubmit(content, mediaFile || undefined, tags);  // ✅ Passe bien les tags ici
+    setContent('');
+    setTags([]);  // ✅ Reset après l'envoi
+    removeMedia();
+  } catch (error) {
+    console.error('Error submitting tweet:', error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   return (
       <motion.form

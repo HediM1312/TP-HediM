@@ -64,29 +64,28 @@ export const uploadMedia = async (mediaFile: File) => {
   return response.data;
 };
 
-export const createTweet = async (content: string, mediaFile?: File) => {
-  // Si aucun fichier média n'est fourni, utiliser l'API JSON standard
+export const createTweet = async (content: string, mediaFile?: File, tags: string[] = []) => {
+  console.log("📤 Tags envoyés dans createTweet :", tags);  // ✅ Vérifie ici aussi
+
   if (!mediaFile) {
-    const response = await api.post<Tweet>('/tweets', { content });
+    const response = await api.post<Tweet>('/tweets', { content, tags });  // ✅ On ajoute bien les tags
     return response.data;
   }
-  
-  // Uploader d'abord le média
+
   const mediaData = await uploadMedia(mediaFile);
-  
-  // Puis créer le tweet avec la référence au média
   const formData = new FormData();
   formData.append('content', content);
   formData.append('media_id', mediaData.media_id);
   formData.append('media_type', mediaData.media_type);
-  
+  formData.append('tags', JSON.stringify(tags));  // ✅ Envoi en JSON
+
   const response = await axios.post<Tweet>(`${API_URL}/tweets/with-media`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
       'Authorization': `Bearer ${localStorage.getItem('token')}`
     }
   });
-  
+
   return response.data;
 };
 
