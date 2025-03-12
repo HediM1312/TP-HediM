@@ -35,6 +35,7 @@ export interface Tweet {
   original_author_username?: string;
   media_id?: string;  // ID du média dans MongoDB GridFS
   media_type?: 'image' | 'video';  // Type de média
+  tags?: string[];
 }
 
 export interface Comment {

@@ -286,6 +286,21 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
 
           <p className="mt-2 text-white">{renderContent(tweet.content)}</p>
 
+          {/* Affichage des tags */}
+          {tweet.tags && tweet.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(tweet.tags || []).map((tag, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 text-sm bg-purple-500 text-white rounded-full cursor-pointer hover:bg-purple-600 transition"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+
           {/* Affichage des médias */}
           {tweet.media_id && tweet.media_type && (
             <div className={`mt-3 relative rounded-xl overflow-hidden ${

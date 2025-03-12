@@ -19,6 +19,8 @@ import shutil
 from pathlib import Path
 import re
 
+from app.services.hashtag import create_or_get_hashtag, attach_hashtag_to_tweet, get_tweet_hashtags
+
 router = APIRouter()
 
 # Configurer un dossier pour les médias uploadés
@@ -72,8 +74,8 @@ def extract_mentions(content: str) -> list:
     return re.findall(mentions_pattern, content)
 
 @router.post("/tweets", response_model=Tweet)
-async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user)):
-
+async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user), hashtags=None):
+    print(f"📥 Tags reçus dans le backend : {tweet.tags}")
     tweet_data = {
         "author_id": current_user.id,
         "author_username": current_user.username,
@@ -82,12 +84,22 @@ async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user
         "like_count": 0,
         "comment_count": 0,
         "retweet_count": 0,
-        "is_retweet": False
+        "is_retweet": False,
+        "tags": tweet.tags
     }
     result = db.tweets.insert_one(tweet_data)
     tweet_id = str(result.inserted_id)
+    saved_hashtags = []
+    hashtags = hashtags or []
+    for tag in hashtags:
+        hashtag = create_or_get_hashtag(tag)
+        attach_hashtag_to_tweet(tweet_id, hashtag.id)
+        saved_hashtags.append(hashtag.tag)
+    tweet_data["tags"] = saved_hashtags
+    print(f"[LOG] Tweet créé avec ID {tweet_id} et tags: {saved_hashtags}")
+
     tweet_data["id"] = tweet_id
-    
+
     # Extraire et traiter les mentions
     mentions = extract_mentions(tweet.content)
     for username in mentions:
@@ -106,8 +118,9 @@ async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user
                 "created_at": datetime.utcnow()
             }
             db.notifications.insert_one(notification_data)
-    
+
     return Tweet(**tweet_data)
+
 
 @router.post("/tweets/with-media", response_model=Tweet)
 async def create_tweet_with_media(
@@ -166,7 +179,13 @@ async def create_tweet_with_media(
 
 @router.get("/tweets", response_model=List[Tweet])
 async def read_tweets():
-    tweets = [{"id": str(tweet["_id"]), **tweet} for tweet in db.tweets.find().sort("created_at", -1).limit(50)]
+    tweets = []
+    for tweet in db.tweets.find().sort("created_at", -1).limit(50):
+        tweet["id"] = str(tweet["_id"])
+        tweet["tags"] = tweet.get("tags", [])  # Ajoute les tags si absents
+        del tweet["_id"]
+        tweets.append(Tweet(**tweet))
+
     return tweets
 
 @router.get("/tweets/{tweet_id}/like_status")
