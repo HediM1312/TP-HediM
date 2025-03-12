@@ -5,6 +5,18 @@ export interface User {
   username: string;
   email: string;
   created_at: string;
+  followers_count: number; // Nombre d'abonnés
+  following_count: number; // Nombre d'abonnements
+  bio?: string; // Biographie optionnelle
+}
+
+export interface Follow {
+  id: string;
+  follower_id: string;
+  follower_username: string;
+  followed_id: string;
+  followed_username: string;
+  created_at: string;
 }
 
 export interface Tweet {
@@ -51,7 +63,7 @@ export interface Notification {
   recipient_id: string;
   sender_id: string;
   sender_username: string;
-  type: 'like' | 'comment' | 'retweet'; // Ajout du type retweet
+  type: 'like' | 'comment' | 'retweet' | 'follow'; // Ajout du type retweet
   tweet_id: string;
   tweet_content: string;
   comment_id?: string;

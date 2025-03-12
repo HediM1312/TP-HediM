@@ -237,7 +237,28 @@ async def get_notifications(current_user: User = Depends(get_current_user)):
     for notification in db.notifications.find({"recipient_id": current_user.id}).sort("created_at", -1).limit(50):
         notification["id"] = str(notification["_id"])
         del notification["_id"]
+        
+        # S'assurer que tous les champs optionnels sont présents pour éviter les erreurs de validation
+        # Pour les notifications de type "follow", les champs liés aux tweets ne sont pas nécessaires
+        if notification["type"] == "follow":
+            # Supprimer les champs tweet_id et tweet_content s'ils existent car ils sont None
+            notification.pop("tweet_id", None)
+            notification.pop("tweet_content", None)
+            notification.pop("comment_id", None)
+            notification.pop("comment_content", None)
+        else:
+            # Pour les autres types, s'assurer que tous les champs ont des valeurs par défaut
+            if "tweet_id" not in notification:
+                notification["tweet_id"] = None
+            if "tweet_content" not in notification:
+                notification["tweet_content"] = None
+            if "comment_id" not in notification and "type" != "comment":
+                notification["comment_id"] = None
+            if "comment_content" not in notification and "type" != "comment":
+                notification["comment_content"] = None
+        
         notifications.append(Notification(**notification))
+    
     return notifications
 
 @router.get("/notifications/count", response_model=dict)
@@ -252,6 +273,25 @@ async def get_unread_notifications_count(current_user: User = Depends(get_curren
 async def mark_all_notifications_as_read(current_user: User = Depends(get_current_user)):
     db.notifications.update_many(
         {"recipient_id": current_user.id, "read": False},
+        {"$set": {"read": True}}
+    )
+    
+    return {"success": True}
+
+@router.put("/notifications/{notification_id}/read")
+async def mark_notification_as_read(notification_id: str, current_user: User = Depends(get_current_user)):
+    # Vérifier si la notification existe et appartient à l'utilisateur actuel
+    notification = db.notifications.find_one({
+        "_id": ObjectId(notification_id),
+        "recipient_id": current_user.id
+    })
+    
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    # Marquer comme lu
+    db.notifications.update_one(
+        {"_id": ObjectId(notification_id)},
         {"$set": {"read": True}}
     )
     

@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getUserTweets } from '@/services/api';
+import { getUserTweets, getUserStats } from '@/services/api';
 import { Tweet } from '@/types';
 import { TweetCard } from '@/components/TweetCard';
 import { useAuth } from '@/context/AppContext';
 import { redirect } from 'next/navigation';
+import FollowButton from '@/components/FollowButton';
+import FollowersList from '@/components/FollowersList';
+import FollowingList from '@/components/FollowingList';
 
 export default function ProfilePage({ params }: { params: { username: string } }) {
   const { username } = params;
@@ -13,6 +16,9 @@ export default function ProfilePage({ params }: { params: { username: string } }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const [userStats, setUserStats] = useState({ followers_count: 0, following_count: 0 });
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
 
   useEffect(() => {
     // Rediriger si non authentifié
@@ -20,23 +26,37 @@ export default function ProfilePage({ params }: { params: { username: string } }
       redirect('/login');
     }
 
-    const fetchUserTweets = async () => {
+    const fetchUserData = async () => {
       try {
         setLoading(true);
-        const data = await getUserTweets(username);
-        setTweets(data);
+        // Récupérer les tweets
+        const tweetsData = await getUserTweets(username);
+        setTweets(tweetsData);
+        
+        // Récupérer les statistiques
+        const stats = await getUserStats(username);
+        setUserStats(stats);
       } catch (error) {
-        console.error('Error fetching user tweets:', error);
-        setError('Impossible de charger les tweets de cet utilisateur.');
+        console.error('Error fetching user data:', error);
+        setError('Impossible de charger les données de cet utilisateur.');
       } finally {
         setLoading(false);
       }
     };
 
     if (isAuthenticated && username) {
-      fetchUserTweets();
+      fetchUserData();
     }
   }, [username, isAuthenticated, authLoading]);
+
+  // Gérer le changement d'état du bouton suivre
+  const handleFollowChange = (following: boolean) => {
+    // Mettre à jour le compteur d'abonnés localement
+    setUserStats(prev => ({
+      ...prev,
+      followers_count: following ? prev.followers_count + 1 : prev.followers_count - 1
+    }));
+  };
 
   if (authLoading) {
     return (
@@ -67,12 +87,35 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 </span>
               </div>
             </div>
+            
+            {/* Actions (suivre/ne plus suivre) */}
+            <div className="absolute top-0 right-0">
+              <FollowButton 
+                username={username} 
+                onFollowChange={handleFollowChange}
+              />
+            </div>
+            
             <div className="pt-16">
               <h2 className="text-xl font-bold text-white">{username}</h2>
               <p className="text-gray-400">@{username}</p>
-              <div className="mt-2">
+              
+              {/* Statistiques */}
+              <div className="mt-2 flex space-x-4">
+                <button 
+                  onClick={() => setShowFollowing(true)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <span className="text-white font-bold">{userStats.following_count}</span> abonnements
+                </button>
+                <button 
+                  onClick={() => setShowFollowers(true)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <span className="text-white font-bold">{userStats.followers_count}</span> abonnés
+                </button>
                 <span className="text-gray-400">
-                  <strong className="text-white">{tweets.length}</strong> Tweets
+                  <span className="text-white font-bold">{tweets.length}</span> tweets
                 </span>
               </div>
             </div>
@@ -80,6 +123,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
         </div>
       </div>
 
+      {/* Liste des tweets */}
       {loading ? (
         <div className="flex justify-center p-8">
           <div className="spinner w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
@@ -97,6 +141,19 @@ export default function ProfilePage({ params }: { params: { username: string } }
           Cet utilisateur n'a pas encore tweeté.
         </div>
       )}
+
+      {/* Modales pour les listes d'abonnés/abonnements */}
+      <FollowersList 
+        username={username} 
+        isVisible={showFollowers} 
+        onClose={() => setShowFollowers(false)} 
+      />
+      
+      <FollowingList 
+        username={username} 
+        isVisible={showFollowing} 
+        onClose={() => setShowFollowing(false)} 
+      />
     </div>
   );
 }
