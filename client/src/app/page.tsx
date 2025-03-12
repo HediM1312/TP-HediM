@@ -1,85 +1,148 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { TweetCard } from '@/components/TweetCard';
 import { TweetForm } from '@/components/TweetForm';
-import { getTweets, createTweet } from '@/services/api';
 import { Tweet } from '@/types';
 import { useAuth } from '@/context/AppContext';
-import { redirect } from 'next/navigation';
-import Layout from '@/components/Layout';
+import { motion } from 'framer-motion';
+import { getTweets, createTweet } from '@/services/api';
 
-export default function Home() {
+const HomePage = () => {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [tweets, setTweets] = useState<Tweet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
+  // Redirection si non authentifié
   useEffect(() => {
-    // Rediriger si non authentifié
     if (!authLoading && !isAuthenticated) {
-      redirect('/login');
+      router.push('/login');
     }
+  }, [isAuthenticated, authLoading, router]);
 
+  // Fetch tweets
+  useEffect(() => {
     const fetchTweets = async () => {
+      if (!isAuthenticated) return;
+      
+      setIsLoading(true);
+      setError(null);
       try {
-        setLoading(true);
         const data = await getTweets();
-        setTweets(data);
+        setTweets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching tweets:', error);
+        setError('Failed to load tweets');
+        setTweets([]);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    if (isAuthenticated) {
-      fetchTweets();
-    }
-  }, [isAuthenticated, authLoading]);
+    fetchTweets();
+  }, [isAuthenticated]);
 
-  const handleNewTweet = async (content: string) => {
+  const handleTweetSubmit = async (content: string) => {
+    if (!user) return;
+
     try {
       const newTweet = await createTweet(content);
-      setTweets([newTweet, ...tweets]);
+      setTweets(prev => [newTweet, ...prev]);
     } catch (error) {
       console.error('Error creating tweet:', error);
     }
   };
 
+  const handleTweetUpdate = (updatedTweet: Tweet) => {
+    setTweets(prev =>
+      prev.map(tweet => (tweet.id === updatedTweet.id ? updatedTweet : tweet))
+    );
+  };
+
+  // Afficher le loader pendant la vérification de l'auth
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
+      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
+        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Rediriger si non authentifié
+  if (!isAuthenticated) {
+    return null; // La redirection sera gérée par le useEffect
+  }
+
+  // Gérer l'état de chargement des tweets
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
+        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Gérer l'état d'erreur
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
+        <div className="text-red-500 flex flex-col items-center">
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-purple-500 rounded-full text-white hover:bg-purple-600 transition-colors"
+          >
+            Réessayer
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="border-b border-extralight">
-        <h1 className="text-xl font-bold p-4">Accueil</h1>
-      </div>
+    <div className="min-h-screen bg-gray-900">
+      <main className="max-w-2xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-md">
+            <div className="px-4 py-3 border-b border-gray-800">
+              <h1 className="text-xl font-bold text-white">Accueil</h1>
+            </div>
+            <TweetForm onSubmit={handleTweetSubmit} />
+          </div>
 
-      <TweetForm onSubmit={handleNewTweet} />
-
-      {loading ? (
-        <div className="flex justify-center p-8">
-          <div className="spinner w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : tweets.length > 0 ? (
-        <div className="tweets-container">
-          {tweets.map((tweet) => (
-            <TweetCard key={tweet.id} tweet={tweet} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center p-8 text-gray-500">
-          Aucun tweet à afficher. Soyez le premier à tweeter !
-        </div>
-      )}
-    </Layout>
+          <div className="divide-y divide-gray-800">
+            {tweets.length > 0 ? (
+              tweets.map(tweet => (
+                <motion.div
+                  key={tweet.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <TweetCard
+                    tweet={tweet}
+                    onTweetUpdate={handleTweetUpdate}
+                  />
+                </motion.div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                <p className="text-xl font-semibold">Aucun tweet pour le moment</p>
+                <p className="mt-2">Soyez le premier à tweeter !</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </main>
+    </div>
   );
-}
+};
+
+export default HomePage;

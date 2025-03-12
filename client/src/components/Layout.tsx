@@ -1,85 +1,102 @@
 'use client';
 
-import React, { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { FiHome, FiUser, FiBell, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '@/context/AppContext';
-import { usePathname, useRouter } from 'next/navigation';
-import { FaHome, FaUser, FaSignOutAlt, FaBell, FaCamera } from 'react-icons/fa';
-import WebcamCapture from './WebcamCapture';
+import { motion } from 'framer-motion';
 
+// Changez l'export pour un export par défaut
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, logout } = useAuth();
-  const router = useRouter();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
-  const [showWebcam, setShowWebcam] = useState(false);
+  const isAuthPage = pathname === '/login' || pathname === '/register';
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
+  const sidebarLinks = [
+    {
+      icon: FiHome,
+      label: 'Accueil',
+      href: '/',
+    },
+    {
+      icon: FiBell,
+      label: 'Notifications',
+      href: '/notification',
+    },
+    {
+      icon: FiUser,
+      label: 'Profil',
+      href: `/profile/${user?.username}`,
+    },
+  ];
 
-  const handleImageCaptured = (imageData: string) => {
-    console.log('Image capturée avec succès');
-  };
-
-  if (!isAuthenticated) {
-    return <div className="container mx-auto max-w-lg p-4">{children}</div>;
+  if (isAuthPage) {
+    return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="container mx-auto max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-4 min-h-screen">
-          {/* Sidebar */}
-          <div className="md:col-span-1 border-r border-extralight p-4">
-            <div className="sticky top-0">
-              <div className="flex flex-col space-y-6">
-                <Link href="/" className="text-2xl font-bold text-primary">
-                  Twitter Clone
-                </Link>
-                <nav className="flex flex-col space-y-4">
-                  <Link href="/" className={`flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 text-lg ${pathname === '/' ? 'font-bold' : ''}`}>
-                    <FaHome />
-                    <span>Accueil</span>
-                  </Link>
-                  {user && (
-                    <Link href={`/profile/${user.username}`} className={`flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 text-lg ${pathname.startsWith('/profile') ? 'font-bold' : ''}`}>
-                      <FaUser />
-                      <span>Profil</span>
-                    </Link>
-                  )}
-                  <Link href="/notification" className={`flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 text-lg ${pathname.startsWith('/notification') ? 'font-bold' : ''}`}>
-                    <FaBell />
-                    <span>Notifications</span>
-                  </Link>
-                  <button 
-                    onClick={() => setShowWebcam(!showWebcam)} 
-                    className={`flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 text-lg text-left ${showWebcam ? 'bg-gray-100 font-bold' : ''}`}
-                  >
-                    <FaCamera />
-                    <span>Caméra</span>
-                  </button>
-                  <button onClick={handleLogout} className="flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 text-lg text-left">
-                    <FaSignOutAlt />
-                    <span>Déconnexion</span>
-                  </button>
-                </nav>
-              </div>
-            </div>
+    <div className="flex min-h-screen bg-gray-900">
+      <div className="fixed h-screen w-64 bg-gray-900 border-r border-gray-800">
+        <div className="flex flex-col h-full p-4">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-purple-500">Twitter Clone</h1>
           </div>
 
-          {/* Main content */}
-          <main className="md:col-span-3 border-l border-extralight">
-            {showWebcam && (
-              <div className="border-b border-extralight p-4">
-                <h2 className="text-xl font-bold mb-4">Caméra</h2>
-                <WebcamCapture onImageCaptured={handleImageCaptured} />
+          <nav className="flex-1">
+            <ul className="space-y-2">
+              {sidebarLinks.map((link) => {
+                const Icon = link.icon;
+                const isActive = pathname === link.href;
+
+                return (
+                  <motion.li
+                    key={link.href}
+                    whileHover={{ x: 5 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Link
+                      href={link.href}
+                      className={`flex items-center space-x-3 px-4 py-3 rounded-full transition-colors ${
+                        isActive
+                          ? 'bg-purple-500 text-white'
+                          : 'text-gray-300 hover:bg-gray-800'
+                      }`}
+                    >
+                      <Icon className="w-6 h-6" />
+                      <span className="font-medium">{link.label}</span>
+                    </Link>
+                  </motion.li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          <div className="border-t border-gray-800 pt-4">
+            <div className="flex items-center space-x-3 px-4 py-3">
+              <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">
+                {user?.username?.[0]?.toUpperCase()}
               </div>
-            )}
-            {children}
-          </main>
+              <div className="flex-1">
+                <p className="text-white font-medium">{user?.username}</p>
+                <p className="text-gray-400 text-sm">@{user?.username}</p>
+              </div>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => logout()}
+              className="w-full mt-2 flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+            >
+              <FiLogOut className="w-6 h-6" />
+              <span className="font-medium">Déconnexion</span>
+            </motion.button>
+          </div>
         </div>
       </div>
+      <main className="flex-1 ml-64">
+        {children}
+      </main>
     </div>
   );
 }

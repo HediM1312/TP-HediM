@@ -7,6 +7,7 @@ import { CommentSection } from '@/components/CommentSection';
 import WebcamCapture from '@/components/WebcamCapture';
 import EmotionReactions from '@/components/EmotionReactions';
 import { useAuth } from '@/context/AppContext';
+import { FiMessageCircle, FiHeart, FiRepeat, FiSmile } from 'react-icons/fi';
 
 interface TweetCardProps {
   tweet: Tweet;
@@ -198,119 +199,98 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
   };
 
   return (
-    
-    <div className="border-b border-extralight p-4 hover:bg-gray-50">
-              {tweet.is_retweet && (
-          <div className="mb-2 text-sm text-gray-500 flex items-center">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-4 w-4 mr-1" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={1.5} 
-                d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" 
-              />
-            </svg>
-            <span>Retweeté par {tweet.author_username}</span>
-          </div>
-        )}
-      <div className="flex space-x-3">
+    <div className="p-4 border-b border-gray-800 hover:bg-purple-500/5 transition-all">
+      {tweet.is_retweet && (
+        <div className="flex items-center text-sm text-purple-400 mb-2">
+          <FiRepeat className="w-4 h-4 mr-2" />
+          <span>Retweeté par {tweet.author_username}</span>
+        </div>
+      )}
+
+      <div className="flex">
         <div className="flex-shrink-0">
-          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-            <span className="text-gray-600 font-bold">
-              {tweet.author_username.charAt(0).toUpperCase()}
-            </span>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+            {tweet.author_username.charAt(0).toUpperCase()}
           </div>
         </div>
-        <div className="flex-1 min-w-0">
+
+        <div className="ml-3 flex-grow">
           <div className="flex items-center">
-            <Link href={`/profile/${tweet.author_username}`} className="font-bold text-dark hover:underline">
+            <Link 
+              href={`/profile/${tweet.author_username}`} 
+              className="font-semibold text-white hover:text-purple-400 transition-colors"
+            >
               {tweet.author_username}
             </Link>
-            <span className="ml-2 text-sm text-secondary">
+            <span className="ml-2 text-sm text-purple-400">
               {formatDate(tweet.created_at)}
             </span>
           </div>
-          <p className="mt-1 text-gray-900">{tweet.content}</p>
-          
+
+          <p className="mt-2 text-white">{tweet.content}</p>
+
           {/* Affichage des réactions émotionnelles */}
-          <EmotionReactions tweetId={tweet.id} userReaction={userReaction} />
-          
-          {/* Actions */}
-          <div className="mt-3 flex space-x-8">
+          <div className="mt-2">
+            <EmotionReactions tweetId={tweet.id} userReaction={userReaction} />
+          </div>
+
+          <div className="mt-3 flex space-x-6">
             {/* Bouton commentaires */}
             <button 
               onClick={toggleComments}
-              className="flex items-center text-gray-500 hover:text-blue-500"
+              className="flex items-center text-gray-400 hover:text-purple-400 transition-colors group"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-              </svg>
+              <FiMessageCircle className="w-5 h-5 mr-2 group-hover:text-purple-400" />
               <span>{tweet.comment_count}</span>
             </button>
-            
+
+            {/* Bouton retweet */}
+            <button 
+              onClick={handleRetweetToggle}
+              disabled={isLoading}
+              className={`flex items-center transition-colors group ${
+                isRetweeted ? 'text-green-500' : 'text-gray-400 hover:text-green-400'
+              }`}
+            >
+              <FiRepeat className={`w-5 h-5 mr-2 ${
+                isRetweeted ? 'text-green-500' : 'group-hover:text-green-400'
+              }`} />
+              <span>{retweetCount}</span>
+            </button>
+
             {/* Bouton like */}
             <button 
               onClick={handleLikeToggle}
               disabled={isLoading}
-              className={`flex items-center ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+              className={`flex items-center transition-colors group ${
+                isLiked ? 'text-pink-500' : 'text-gray-400 hover:text-pink-400'
+              }`}
             >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5 mr-1" 
-                viewBox="0 0 20 20" 
-                fill={isLiked ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth={isLiked ? "0" : "1.5"}
-              >
-                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-              </svg>
+              <FiHeart className={`w-5 h-5 mr-2 ${
+                isLiked ? 'text-pink-500 fill-current' : 'group-hover:text-pink-400'
+              }`} />
               <span>{likeCount}</span>
             </button>
 
-            <button 
-              onClick={handleRetweetToggle}
-              disabled={isLoading}
-              className={`flex items-center ${isRetweeted ? 'text-green-500' : 'text-gray-500 hover:text-green-500'}`}
-            >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5 mr-1" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={1.5} 
-                  d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" 
-                />
-              </svg>
-              <span>{retweetCount}</span>
-            </button>
-            
-            {/* Bouton réaction émotionnelle */}
+            {/* Bouton réaction */}
             <button 
               onClick={toggleReaction}
-              className={`flex items-center ${showWebcam ? 'text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}
+              className={`flex items-center transition-colors group ${
+                showWebcam ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-400'
+              }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
-              </svg>
+              <FiSmile className="w-5 h-5 mr-2 group-hover:text-yellow-400" />
               <span>Réagir</span>
             </button>
           </div>
-          
+
           {/* Webcam pour réaction émotionnelle */}
           {showWebcam && (
-            <div ref={webcamContainerRef} className="mt-4 mb-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-sm font-medium mb-2">
+            <div 
+              ref={webcamContainerRef} 
+              className="mt-4 p-4 bg-gray-800/50 rounded-xl border border-gray-700"
+            >
+              <div className="text-sm font-medium mb-2 text-purple-400">
                 {isReacting ? 
                   "Analyse de votre réaction en cours..." : 
                   "Exprimez votre réaction à ce tweet"
@@ -323,13 +303,15 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
               />
             </div>
           )}
-          
+
           {/* Section commentaires */}
           {showComments && (
-            <CommentSection 
-              tweetId={tweet.id} 
-              onCommentAdded={handleCommentAdded} 
-            />
+            <div className="mt-4 border-t border-gray-800 pt-4">
+              <CommentSection 
+                tweetId={tweet.id} 
+                onCommentAdded={handleCommentAdded} 
+              />
+            </div>
           )}
         </div>
       </div>

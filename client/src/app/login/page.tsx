@@ -5,138 +5,227 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { loginUser, getCurrentUser } from '@/services/api';
 import { useAuth } from '@/context/AppContext';
+import { motion } from 'framer-motion';
+import { FiSun, FiMoon, FiUser, FiLock } from 'react-icons/fi';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, isAuthenticated, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
+  
+  const router = useRouter();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
+
+  
   useEffect(() => {
-    // Rediriger si déjà authentifié
+    const savedTheme = localStorage.getItem('theme');
+    setIsDarkMode(savedTheme === 'dark');
+
     if (!authLoading && isAuthenticated) {
       router.push('/');
     }
   }, [isAuthenticated, authLoading, router]);
 
+  // Gestionnaires d'événements
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+    localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    if (!username || !password) {
+    if (!formData.username || !formData.password) {
       setError('Tous les champs sont requis');
       return;
     }
 
     try {
       setLoading(true);
-      // Récupérer le token d'authentification
-      const data = await loginUser(username, password);
-      
-      // Déboguer le token reçu
-      console.log('Token reçu:', data.access_token);
-      
-      // Stocker manuellement le token
+      const data = await loginUser(formData.username, formData.password);
       localStorage.setItem('token', data.access_token);
       
-      // Vérifier que le token est correctement stocké
-      const storedToken = localStorage.getItem('token');
-      console.log('Token stocké:', storedToken);
-      
-      try {
-        // Récupérer l'utilisateur avec le token
-        const user = await getCurrentUser();
-        console.log('Utilisateur récupéré:', user);
-        
-        // Mettre à jour le contexte d'authentification
-        login(data.access_token, user);
-        router.push('/');
-      } catch (userError) {
-        console.error('Erreur lors de la récupération de l\'utilisateur:', userError);
-        setError('Authentification réussie mais impossible de récupérer les informations utilisateur.');
-      }
+      const user = await getCurrentUser();
+      login(data.access_token, user);
+      router.push('/');
     } catch (error: any) {
-      console.error('Login error:', error);
-      setError(error.response?.data?.detail || 'Erreur de connexion. Veuillez réessayer.');
+      setError(error.response?.data?.detail || 'Erreur de connexion');
     } finally {
       setLoading(false);
     }
   };
 
+  // Affichage du loader pendant la vérification de l'authentification
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
-        </div>
+      <div className={`min-h-screen flex items-center justify-center ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
+        <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary">Twitter Clone</h1>
-          <p className="mt-2 text-gray-600">Connectez-vous à votre compte</p>
+    <div className={`min-h-screen flex items-center justify-center transition-all duration-300 ${
+      isDarkMode 
+        ? 'bg-gray-900' 
+        : 'bg-gradient-to-br from-purple-50 via-white to-pink-50'
+    }`}>
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className={`w-[400px] rounded-2xl shadow-xl p-8 ${
+          isDarkMode 
+            ? 'bg-gray-800 shadow-gray-700/30' 
+            : 'bg-white/80 backdrop-blur-sm'
+        }`}
+      >
+        {/* Bouton thème */}
+        <div className="flex justify-end mb-6">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={toggleTheme}
+            className={`p-2.5 rounded-full transition-colors ${
+              isDarkMode 
+                ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {isDarkMode ? <FiSun size={20} /> : <FiMoon size={20} />}
+          </motion.button>
         </div>
 
+        {/* En-tête */}
+        <motion.div 
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="text-center mb-8"
+        >
+          <h1 className={`text-2xl font-bold mb-2 ${
+            isDarkMode ? 'text-white' : 'text-gray-800'
+          }`}>
+            Twitter Clone
+          </h1>
+          <p className={`text-sm ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            Connectez-vous pour continuer
+          </p>
+        </motion.div>
+
+        {/* Message d'erreur */}
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mb-6 p-3 rounded-lg text-sm flex items-center justify-center ${
+              isDarkMode 
+                ? 'bg-red-900/50 text-red-200' 
+                : 'bg-red-50 text-red-600'
+            }`}
+          >
             {error}
-          </div>
+          </motion.div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="username" className="block text-gray-700 font-medium mb-2">
-              Nom d'utilisateur
-            </label>
+        {/* Formulaire */}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="relative">
+            <FiUser className={`absolute left-3 top-3 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+            }`} />
             <input
               type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              placeholder="Nom d'utilisateur"
+              className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500' 
+                  : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-500 focus:border-purple-500'
+              }`}
               disabled={loading}
             />
           </div>
 
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 font-medium mb-2">
-              Mot de passe
-            </label>
+          <div className="relative">
+            <FiLock className={`absolute left-3 top-3 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+            }`} />
             <input
               type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Mot de passe"
+              className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500' 
+                  : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-500 focus:border-purple-500'
+              }`}
               disabled={loading}
             />
           </div>
 
-          <button
+          <motion.button
             type="submit"
-            className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={loading}
+            className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isDarkMode
+                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                : 'bg-purple-500 hover:bg-purple-600 text-white'
+            }`}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
           >
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </button>
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                <span>Connexion...</span>
+              </div>
+            ) : 'Se connecter'}
+          </motion.button>
         </form>
 
-        <div className="mt-4 text-center">
-          <p className="text-gray-600">
+        {/* Lien d'inscription */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="mt-6 text-center text-sm"
+        >
+          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
             Pas encore de compte ?{' '}
-            <Link href="/register" className="text-primary hover:underline">
+            <Link 
+              href="/register" 
+              className={`font-medium transition-colors ${
+                isDarkMode
+                  ? 'text-purple-400 hover:text-purple-300'
+                  : 'text-purple-500 hover:text-purple-600'
+              }`}
+            >
               Inscrivez-vous
             </Link>
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

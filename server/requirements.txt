@@ -1,3 +1,4 @@
+# FastAPI et dépendances de base
 annotated-types==0.7.0
 anyio==4.8.0
 bcrypt==4.1.2
@@ -18,3 +19,17 @@ sniffio==1.3.1
 starlette==0.36.3
 typing_extensions==4.12.2
 uvicorn==0.27.1
+
+# Dépendances pour la détection d'émotions
+#opencv-python==4.11.0.86  # Pour le traitement d'images
+#tensorflow==2.15.0  # Pour le modèle de détection d'émotions
+#fer==22.5.1  # Facial Expression Recognition
+
+# Dépendances pour PyTorch et MTCNN
+#torch==2.6.0  # Framework PyTorch
+#torchvision==0.21.0  # Outils de vision par ordinateur pour PyTorch
+#facenet-pytorch==2.6.0  # Pour MTCNN (détection de visages)
+
+# Dépendances pour le traitement vidéo
+#moviepy==2.1.2  # Pour le traitement vidéo
+#numpy==2.2.3  # Requis pour les calculs numériques
