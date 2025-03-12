@@ -487,3 +487,31 @@ async def update_user_profile(
         "success": True,
         "user": user_response
     }
+
+@router.get("/users/by-username/{username}", response_model=User)
+async def get_user_by_username(username: str):
+    """Récupère les informations d'un utilisateur par son nom d'utilisateur"""
+    user_data = db.users.find_one({"username": username})
+    
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Construire l'objet de réponse
+    user_response = {
+        "id": str(user_data["_id"]),
+        "username": user_data["username"],
+        "email": user_data["email"],
+        "created_at": user_data["created_at"],
+        "followers_count": user_data.get("followers_count", 0),
+        "following_count": user_data.get("following_count", 0),
+        "bio": user_data.get("bio", None)
+    }
+    
+    # Ajouter les IDs des photos s'ils existent
+    if "profile_picture_id" in user_data:
+        user_response["profile_picture_id"] = user_data["profile_picture_id"]
+    
+    if "banner_picture_id" in user_data:
+        user_response["banner_picture_id"] = user_data["banner_picture_id"]
+    
+    return user_response

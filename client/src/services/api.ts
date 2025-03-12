@@ -371,3 +371,13 @@ export const loadUserImage = async (imageUrl: string | null): Promise<string | n
     return null;
   }
 };
+
+export const getUserByUsername = async (username: string) => {
+  try {
+    const response = await api.get<User>(`/users/by-username/${username}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur lors de la récupération de l'utilisateur ${username}:`, error);
+    return null;
+  }
+};

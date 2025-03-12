@@ -9,6 +9,7 @@ import EmotionReactions from '@/components/EmotionReactions';
 import { useAuth } from '@/context/AppContext';
 import { FiMessageCircle, FiHeart, FiRepeat, FiSmile, FiMaximize2 } from 'react-icons/fi';
 import { getMediaUrl } from '@/services/api';
+import UserAvatar from './UserAvatar';
 
 interface TweetCardProps {
   tweet: Tweet;
@@ -264,9 +265,10 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
 
       <div className="flex">
         <div className="flex-shrink-0">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+          {/* <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
             {tweet.author_username.charAt(0).toUpperCase()}
-          </div>
+          </div> */}
+          <UserAvatar username={tweet.author_username} size="medium" className="rounded-xl" />
         </div>
 
         <div className="ml-3 flex-grow">
