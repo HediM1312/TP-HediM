@@ -266,3 +266,15 @@ export const getUserStats = async (username: string) => {
   const response = await api.get<{ followers_count: number, following_count: number }>(`/users/${username}/stats`);
   return response.data;
 };
+
+// Récupérer les tweets likés par un utilisateur
+export const getUserLikedTweets = async (username: string) => {
+  const response = await api.get<Tweet[]>(`/users/${username}/liked-tweets`);
+  return response.data;
+};
+
+// Récupérer les tweets retweetés par un utilisateur
+export const getUserRetweetedTweets = async (username: string) => {
+  const response = await api.get<Tweet[]>(`/users/${username}/retweeted-tweets`);
+  return response.data;
+};
