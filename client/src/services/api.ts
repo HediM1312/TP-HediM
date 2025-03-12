@@ -285,3 +285,89 @@ export const searchUsers = async (query: string) => {
   const response = await api.get<User[]>(`/users/search?query=${encodeURIComponent(query)}`);
   return response.data;
 };
+
+// Télécharger une photo de profil
+export const uploadProfilePhoto = async (photoFile: File) => {
+  const formData = new FormData();
+  formData.append('file', photoFile);
+  
+  const response = await axios.post<{ success: boolean, profile_picture_id: string }>(
+    `${API_URL}/users/profile-photo`, 
+    formData, 
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    }
+  );
+  
+  return response.data;
+};
+
+// Télécharger une photo de bannière
+export const uploadBannerPhoto = async (photoFile: File) => {
+  const formData = new FormData();
+  formData.append('file', photoFile);
+  
+  const response = await axios.post<{ success: boolean, banner_picture_id: string }>(
+    `${API_URL}/users/banner-photo`, 
+    formData, 
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    }
+  );
+  
+  return response.data;
+};
+
+// Mettre à jour le profil (bio, etc.)
+export const updateUserProfile = async (bio: string) => {
+  const formData = new FormData();
+  formData.append('bio', bio);
+  
+  const response = await axios.put<{ success: boolean, user: User }>(
+    `${API_URL}/users/profile`, 
+    formData, 
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    }
+  );
+  
+  return response.data;
+};
+
+// Obtenir l'URL d'une image stockée dans GridFS avec gestion des erreurs
+export const getUserMediaUrl = (fileId: string | null | undefined): string | null => {
+  if (!fileId) return null;
+  
+  // Vérifier si c'est une URL complète (pour compatibilité avec d'anciens formats)
+  if (fileId.startsWith('http')) return fileId;
+  
+  // Construire l'URL vers l'endpoint GridFS
+  return `${API_URL}/users/media/${fileId}`;
+};
+
+// Charger l'image avec gestion des erreurs (utiliser cette fonction dans les composants)
+export const loadUserImage = async (imageUrl: string | null): Promise<string | null> => {
+  if (!imageUrl) return null;
+  
+  try {
+    // Vérifier si l'image existe en effectuant une requête HEAD
+    const response = await fetch(imageUrl, { method: 'HEAD' });
+    if (!response.ok) {
+      console.error(`Image non disponible: ${imageUrl}`);
+      return null;
+    }
+    return imageUrl;
+  } catch (error) {
+    console.error(`Erreur lors du chargement de l'image: ${imageUrl}`, error);
+    return null;
+  }
+};

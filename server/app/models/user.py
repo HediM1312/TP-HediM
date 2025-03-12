@@ -11,8 +11,8 @@ class User(BaseModel):
     id: str
     username: str
     email: EmailStr
-    profile_picture_url: Optional[str] = None
-    banner_picture_url: Optional[str] = None
+    profile_picture_id: Optional[str] = None  # ID GridFS pour la photo de profil
+    banner_picture_id: Optional[str] = None   # ID GridFS pour la bannière
     bio: Optional[str] = None
     followers_count: int = 0
     following_count: int = 0

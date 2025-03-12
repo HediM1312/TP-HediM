@@ -11,6 +11,8 @@ interface AuthContextType {
   login: (token: string, user: User) => void;
   logout: () => void;
   loading: boolean;
+  updateUserInContext: (updatedUser: User) => void;
+  refreshUserData: () => Promise<void>; // Nouvelle fonction pour rafraîchir les données
 }
 
 const defaultAuthState = {
@@ -19,7 +21,9 @@ const defaultAuthState = {
   isAuthenticated: false,
   login: () => {},
   logout: () => {},
-  loading: true
+  loading: true,
+  updateUserInContext: () => {},
+  refreshUserData: async () => {},
 };
 
 const AuthContext = createContext<AuthContextType>(defaultAuthState);
@@ -31,6 +35,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Fonction pour mettre à jour les données utilisateur
+  const updateUserInContext = (updatedUser: User) => {
+    setUser(updatedUser);
+  };
+
+  // Fonction pour rafraîchir les données utilisateur depuis le serveur
+  const refreshUserData = async () => {
+    try {
+      if (isAuthenticated) {
+        const userData = await getCurrentUser();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('Erreur lors du rafraîchissement des données utilisateur:', error);
+    }
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -45,6 +66,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('Tentative de récupération des informations utilisateur...');
             const userData = await getCurrentUser();
             console.log('Informations utilisateur récupérées:', userData);
+            
+            // S'assurer que toutes les données sont bien présentes
+            if (userData) {
+              console.log('Profile picture ID:', userData.profile_picture_id);
+              console.log('Banner picture ID:', userData.banner_picture_id);
+              console.log('Bio:', userData.bio);
+            }
             
             setUser(userData);
             setToken(storedToken);
@@ -82,7 +110,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      isAuthenticated, 
+      login, 
+      logout, 
+      loading, 
+      updateUserInContext,
+      refreshUserData
+    }}>
       {children}
     </AuthContext.Provider>
   );

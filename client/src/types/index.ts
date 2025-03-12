@@ -8,6 +8,8 @@ export interface User {
   followers_count: number; // Nombre d'abonnés
   following_count: number; // Nombre d'abonnements
   bio?: string; // Biographie optionnelle
+  profile_picture_id?: string;
+  banner_picture_id?: string;
 }
 
 export interface Follow {

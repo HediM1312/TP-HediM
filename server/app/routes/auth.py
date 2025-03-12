@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile, File
+from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta, datetime
 from typing import List
-from app.database import db
+from app.database import db, fs
 from app.models import UserCreate, User
 from app.models.follow import Follow
 from app.models.tweet import Tweet
@@ -51,13 +52,30 @@ async def create_user(user: UserCreate):
 
 @router.get("/users/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    user_data = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "created_at": current_user.created_at
+    user_data = db.users.find_one({"_id": ObjectId(current_user.id)})
+    
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Construire l'objet de réponse avec tous les champs
+    user_response = {
+        "id": str(user_data["_id"]),
+        "username": user_data["username"],
+        "email": user_data["email"],
+        "created_at": user_data["created_at"],
+        "followers_count": user_data.get("followers_count", 0),
+        "following_count": user_data.get("following_count", 0),
+        "bio": user_data.get("bio", None)
     }
-    return user_data
+    
+    # Ajouter les IDs des photos s'ils existent
+    if "profile_picture_id" in user_data:
+        user_response["profile_picture_id"] = user_data["profile_picture_id"]
+    
+    if "banner_picture_id" in user_data:
+        user_response["banner_picture_id"] = user_data["banner_picture_id"]
+    
+    return user_response
 
 @router.get("/users/{username}/tweets", response_model=List[Tweet])
 async def read_user_tweets(username: str):
@@ -305,3 +323,167 @@ async def search_users(query: str):
         })
     
     return users
+
+@router.post("/users/profile-photo", status_code=status.HTTP_200_OK)
+async def upload_profile_photo(
+    file: UploadFile = File(...), 
+    current_user: User = Depends(get_current_user)
+):
+    """Télécharge et stocke une photo de profil dans MongoDB GridFS"""
+    # Valider le type de fichier (image uniquement)
+    content_type = file.content_type
+    if not content_type or not content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=400, 
+            detail="Format de fichier non supporté. Utilisez JPG, PNG, GIF ou WEBP."
+        )
+    
+    try:
+        # Lire le contenu du fichier
+        contents = await file.read()
+        
+        # Si l'utilisateur a déjà une photo de profil, la supprimer
+        if hasattr(current_user, 'profile_picture_id') and current_user.profile_picture_id:
+            try:
+                fs.delete(ObjectId(current_user.profile_picture_id))
+            except:
+                pass  # Ignorer les erreurs si l'ancien fichier n'existe pas
+        
+        # Stocker le fichier dans GridFS
+        file_id = fs.put(
+            contents, 
+            filename=file.filename,
+            content_type=content_type,
+            metadata={"user_id": current_user.id, "type": "profile_picture"}
+        )
+        
+        # Mettre à jour le document utilisateur avec l'ID du fichier
+        db.users.update_one(
+            {"_id": ObjectId(current_user.id)},
+            {"$set": {"profile_picture_id": str(file_id)}}
+        )
+        
+        return {
+            "success": True, 
+            "profile_picture_id": str(file_id)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'upload: {str(e)}")
+
+@router.post("/users/banner-photo", status_code=status.HTTP_200_OK)
+async def upload_banner_photo(
+    file: UploadFile = File(...), 
+    current_user: User = Depends(get_current_user)
+):
+    """Télécharge et stocke une photo de bannière dans MongoDB GridFS"""
+    # Valider le type de fichier (image uniquement)
+    content_type = file.content_type
+    if not content_type or not content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=400, 
+            detail="Format de fichier non supporté. Utilisez JPG, PNG, GIF ou WEBP."
+        )
+    
+    try:
+        # Lire le contenu du fichier
+        contents = await file.read()
+        
+        # Si l'utilisateur a déjà une bannière, la supprimer
+        if hasattr(current_user, 'banner_picture_id') and current_user.banner_picture_id:
+            try:
+                fs.delete(ObjectId(current_user.banner_picture_id))
+            except:
+                pass  # Ignorer les erreurs si l'ancien fichier n'existe pas
+        
+        # Stocker le fichier dans GridFS
+        file_id = fs.put(
+            contents, 
+            filename=file.filename,
+            content_type=content_type,
+            metadata={"user_id": current_user.id, "type": "banner_picture"}
+        )
+        
+        # Mettre à jour le document utilisateur avec l'ID du fichier
+        db.users.update_one(
+            {"_id": ObjectId(current_user.id)},
+            {"$set": {"banner_picture_id": str(file_id)}}
+        )
+        
+        return {
+            "success": True, 
+            "banner_picture_id": str(file_id)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'upload: {str(e)}")
+
+@router.get("/users/media/{file_id}")
+async def get_user_media(file_id: str):
+    """Récupère un fichier média (photo de profil ou bannière) depuis GridFS"""
+    try:
+        # Vérifier si le fichier existe
+        if not fs.exists(ObjectId(file_id)):
+            raise HTTPException(status_code=404, detail="Fichier non trouvé")
+        
+        # Récupérer le fichier et ses métadonnées
+        grid_out = fs.get(ObjectId(file_id))
+        content_type = grid_out.content_type
+        
+        # Lire le contenu du fichier
+        contents = grid_out.read()
+        
+        # Retourner le fichier avec le bon type MIME
+        return Response(content=contents, media_type=content_type)
+    
+    except Exception as e:
+        if "Fichier non trouvé" in str(e):
+            raise HTTPException(status_code=404, detail="Fichier non trouvé")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du fichier: {str(e)}")
+
+@router.put("/users/profile", status_code=status.HTTP_200_OK)
+async def update_user_profile(
+    bio: str = Form(None), 
+    current_user: User = Depends(get_current_user)
+):
+    """Met à jour les informations de profil de l'utilisateur (bio, etc.)"""
+    
+    # Préparer les mises à jour
+    updates = {}
+    if bio is not None:
+        updates["bio"] = bio
+    
+    # Ne mettre à jour que si des modifications sont demandées
+    if updates:
+        db.users.update_one(
+            {"_id": ObjectId(current_user.id)},
+            {"$set": updates}
+        )
+    
+    # Récupérer les informations mises à jour
+    updated_user = db.users.find_one({"_id": ObjectId(current_user.id)})
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Construire l'objet de réponse
+    user_response = {
+        "id": str(updated_user["_id"]),
+        "username": updated_user["username"],
+        "email": updated_user["email"],
+        "bio": updated_user.get("bio"),
+        "created_at": updated_user["created_at"],
+        "followers_count": updated_user.get("followers_count", 0),
+        "following_count": updated_user.get("following_count", 0)
+    }
+    
+    # Ajouter les IDs des photos si présents
+    if "profile_picture_id" in updated_user:
+        user_response["profile_picture_id"] = updated_user["profile_picture_id"]
+    
+    if "banner_picture_id" in updated_user:
+        user_response["banner_picture_id"] = updated_user["banner_picture_id"]
+    
+    return {
+        "success": True,
+        "user": user_response
+    }
