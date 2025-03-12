@@ -277,3 +277,10 @@ export const getUserRetweetedTweets = async (username: string) => {
   const response = await api.get<Tweet[]>(`/users/${username}/retweeted-tweets`);
   return response.data;
 };
+
+export const searchUsers = async (query: string) => {
+  if (!query || query.trim() === '') return [];
+  
+  const response = await api.get<User[]>(`/users/search?query=${encodeURIComponent(query)}`);
+  return response.data;
+};
