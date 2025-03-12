@@ -4,10 +4,12 @@ from datetime import timedelta, datetime
 from typing import List
 from app.database import db
 from app.models import UserCreate, User
+from app.models.follow import Follow
 from app.models.tweet import Tweet
 from app.models.token import Token
 from app.services.auth import authenticate_user, create_access_token, get_password_hash, get_current_user
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from bson import ObjectId
 
 router = APIRouter(prefix="", tags=["Authentication"])
 
@@ -65,3 +67,186 @@ async def read_user_tweets(username: str):
         del tweet["_id"]
         tweets.append(Tweet(**tweet))
     return tweets
+
+
+@router.post("/users/{username}/follow", response_model=Follow)
+async def follow_user(username: str, current_user: User = Depends(get_current_user)):
+    # Vérifier si l'utilisateur à suivre existe
+    user_to_follow = db.users.find_one({"username": username})
+    if not user_to_follow:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Convertir l'ID en string pour faciliter les comparaisons
+    user_to_follow_id = str(user_to_follow["_id"])
+    
+    # Vérifier que l'utilisateur ne tente pas de se suivre lui-même
+    if current_user.id == user_to_follow_id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas vous suivre vous-même")
+    
+    # Vérifier si déjà suivi
+    existing_follow = db.follows.find_one({
+        "follower_id": current_user.id,
+        "followed_id": user_to_follow_id
+    })
+    
+    if existing_follow:
+        raise HTTPException(status_code=400, detail="Vous suivez déjà cet utilisateur")
+    
+    # Créer la relation de suivi
+    follow_data = {
+        "follower_id": current_user.id,
+        "follower_username": current_user.username,
+        "followed_id": user_to_follow_id,
+        "followed_username": username,
+        "created_at": datetime.utcnow()
+    }
+    
+    result = db.follows.insert_one(follow_data)
+    follow_data["id"] = str(result.inserted_id)
+    
+    # Mettre à jour les compteurs de followers/following
+    db.users.update_one(
+        {"_id": ObjectId(user_to_follow_id)},
+        {"$inc": {"followers_count": 1}}
+    )
+    
+    db.users.update_one(
+        {"_id": ObjectId(current_user.id)},
+        {"$inc": {"following_count": 1}}
+    )
+    
+    # Créer une notification pour l'utilisateur suivi
+    notification_data = {
+        "recipient_id": user_to_follow_id,
+        "sender_id": current_user.id,
+        "sender_username": current_user.username,
+        "type": "follow",
+        "read": False,
+        "created_at": datetime.utcnow()
+    }
+    db.notifications.insert_one(notification_data)
+    
+    return Follow(**follow_data)
+
+@router.delete("/users/{username}/unfollow", status_code=status.HTTP_204_NO_CONTENT)
+async def unfollow_user(username: str, current_user: User = Depends(get_current_user)):
+    # Vérifier si l'utilisateur à ne plus suivre existe
+    user_to_unfollow = db.users.find_one({"username": username})
+    if not user_to_unfollow:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    user_to_unfollow_id = str(user_to_unfollow["_id"])
+    
+    # Vérifier si la relation de suivi existe
+    follow = db.follows.find_one({
+        "follower_id": current_user.id,
+        "followed_id": user_to_unfollow_id
+    })
+    
+    if not follow:
+        raise HTTPException(status_code=404, detail="Vous ne suivez pas cet utilisateur")
+    
+    # Supprimer la relation de suivi
+    db.follows.delete_one({"_id": follow["_id"]})
+    
+    # Mettre à jour les compteurs
+    db.users.update_one(
+        {"_id": ObjectId(user_to_unfollow_id)},
+        {"$inc": {"followers_count": -1}}
+    )
+    
+    db.users.update_one(
+        {"_id": ObjectId(current_user.id)},
+        {"$inc": {"following_count": -1}}
+    )
+    
+    return None
+
+@router.get("/users/{username}/follow_status")
+async def check_follow_status(username: str, current_user: User = Depends(get_current_user)):
+    # Vérifier si l'utilisateur existe
+    user = db.users.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    user_id = str(user["_id"])
+    
+    # Vérifier si l'utilisateur courant suit cet utilisateur
+    follow = db.follows.find_one({
+        "follower_id": current_user.id,
+        "followed_id": user_id
+    })
+    
+    return {"following": follow is not None}
+
+@router.get("/users/{username}/followers", response_model=List[User])
+async def get_user_followers(username: str):
+    # Vérifier si l'utilisateur existe
+    user = db.users.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    user_id = str(user["_id"])
+    
+    # Récupérer les relations de suivi où cet utilisateur est suivi
+    follows = db.follows.find({"followed_id": user_id})
+    
+    # Récupérer les données des utilisateurs qui suivent
+    followers = []
+    for follow in follows:
+        follower = db.users.find_one({"_id": ObjectId(follow["follower_id"])})
+        if follower:
+            followers.append({
+                "id": str(follower["_id"]),
+                "username": follower["username"],
+                "email": follower["email"],
+                "bio": follower.get("bio"),
+                "profile_picture_url": follower.get("profile_picture_url"),
+                "followers_count": follower.get("followers_count", 0),
+                "following_count": follower.get("following_count", 0),
+                "created_at": follower["created_at"]
+            })
+    
+    return followers
+
+@router.get("/users/{username}/following", response_model=List[User])
+async def get_user_following(username: str):
+    # Vérifier si l'utilisateur existe
+    user = db.users.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    user_id = str(user["_id"])
+    
+    # Récupérer les relations de suivi où cet utilisateur suit d'autres
+    follows = db.follows.find({"follower_id": user_id})
+    
+    # Récupérer les données des utilisateurs suivis
+    following = []
+    for follow in follows:
+        followed = db.users.find_one({"_id": ObjectId(follow["followed_id"])})
+        if followed:
+            following.append({
+                "id": str(followed["_id"]),
+                "username": followed["username"],
+                "email": followed["email"],
+                "bio": followed.get("bio"),
+                "profile_picture_url": followed.get("profile_picture_url"),
+                "followers_count": followed.get("followers_count", 0),
+                "following_count": followed.get("following_count", 0),
+                "created_at": followed["created_at"]
+            })
+    
+    return following
+
+@router.get("/users/{username}/stats")
+async def get_user_stats(username: str):
+    # Vérifier si l'utilisateur existe
+    user = db.users.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    return {
+        "followers_count": user.get("followers_count", 0),
+        "following_count": user.get("following_count", 0)
+    }

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Tweet, User, Like, Comment } from '@/types';
+import { Tweet, User, Like, Comment, Follow } from '@/types';
 import { EmotionReaction, EmotionReactionSummary } from '@/types';
 
 const API_URL = 'http://localhost:8000';
@@ -229,5 +229,40 @@ export const unretweetTweet = async (tweetId: string) => {
 
 export const checkRetweetStatus = async (tweetId: string) => {
   const response = await api.get<{ retweeted: boolean }>(`/tweets/${tweetId}/retweet_status`);
+  return response.data;
+};
+
+export const followUser = async (username: string) => {
+  const response = await api.post<Follow>(`/users/${username}/follow`);
+  return response.data;
+};
+
+// Ne plus suivre un utilisateur
+export const unfollowUser = async (username: string) => {
+  const response = await api.delete(`/users/${username}/unfollow`);
+  return response.data;
+};
+
+// Vérifier si l'utilisateur actuel suit un autre utilisateur
+export const checkFollowStatus = async (username: string) => {
+  const response = await api.get<{ following: boolean }>(`/users/${username}/follow_status`);
+  return response.data;
+};
+
+// Récupérer la liste des abonnés d'un utilisateur
+export const getUserFollowers = async (username: string) => {
+  const response = await api.get<User[]>(`/users/${username}/followers`);
+  return response.data;
+};
+
+// Récupérer la liste des abonnements d'un utilisateur
+export const getUserFollowing = async (username: string) => {
+  const response = await api.get<User[]>(`/users/${username}/following`);
+  return response.data;
+};
+
+// Récupérer les statistiques d'un utilisateur (nombre d'abonnés, d'abonnements)
+export const getUserStats = async (username: string) => {
+  const response = await api.get<{ followers_count: number, following_count: number }>(`/users/${username}/stats`);
   return response.data;
 };

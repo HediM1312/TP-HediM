@@ -14,6 +14,8 @@ class User(BaseModel):
     profile_picture_url: Optional[str] = None
     banner_picture_url: Optional[str] = None
     bio: Optional[str] = None
+    followers_count: int = 0
+    following_count: int = 0
     created_at: datetime
 
 class UserInDB(User):

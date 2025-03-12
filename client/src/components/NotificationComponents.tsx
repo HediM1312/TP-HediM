@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Notification } from '@/types';
 import { getNotifications, getUnreadNotificationsCount, markNotificationAsRead, markAllNotificationsAsRead } from '@/services/api';
 import Link from 'next/link';
+import { FiHeart, FiMessageCircle, FiRepeat, FiUserPlus } from 'react-icons/fi';
 
 // Composant pour l'icône de notification avec badge
 export const NotificationBell: React.FC = () => {
@@ -189,38 +190,79 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
     return date.toLocaleDateString();
   };
 
+  // Obtenir l'icône en fonction du type de notification
+  const getNotificationIcon = () => {
+    switch (notification.type) {
+      case 'like':
+        return <FiHeart className="w-4 h-4 text-pink-500" />;
+      case 'comment':
+        return <FiMessageCircle className="w-4 h-4 text-blue-500" />;
+      case 'retweet':
+        return <FiRepeat className="w-4 h-4 text-green-500" />;
+      case 'follow':
+        return <FiUserPlus className="w-4 h-4 text-purple-500" />;
+      default:
+        return null;
+    }
+  };
+
+  // Déterminer le texte de la notification
+  const getNotificationText = () => {
+    switch (notification.type) {
+      case 'like':
+        return (
+          <span> a aimé votre tweet</span>
+        );
+      case 'comment':
+        return (
+          <span> a commenté votre tweet</span>
+        );
+      case 'retweet':
+        return (
+          <span> a retweeté votre tweet</span>
+        );
+      case 'follow':
+        return (
+          <span> a commencé à vous suivre</span>
+        );
+      default:
+        return null;
+    }
+  };
+
   const handleClick = () => {
     if (!notification.read) {
       onMarkAsRead(notification.id);
     }
   };
 
+  // Déterminer le lien en fonction du type de notification
+  const notificationLink = notification.type === 'follow'
+    ? `/profile/${notification.sender_username}`
+    : `/tweet/${notification.tweet_id}`;
+
   return (
     <Link 
-      href={`/tweet/${notification.tweet_id}`}
+      href={notificationLink}
       onClick={handleClick}
       className={`block p-3 border-b border-gray-100 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50' : ''}`}
     >
       <div className="flex items-start">
         <div className="flex-shrink-0 mr-3">
           <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-            <span className="text-gray-600 font-bold">
-              {notification.sender_username.charAt(0).toUpperCase()}
-            </span>
+            {getNotificationIcon()}
           </div>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">
             <span className="font-bold">{notification.sender_username}</span>
-            {notification.type === 'like' ? (
-              <span> a aimé votre tweet</span>
-            ) : (
-              <span> a commenté votre tweet</span>
-            )}
+            {getNotificationText()}
           </p>
-          <p className="text-xs text-gray-500 mt-1">
-            {notification.tweet_content}
-          </p>
+          {notification.type !== 'follow' && notification.tweet_content && (
+            <p className="text-xs text-gray-500 mt-1">
+              {notification.tweet_content}
+            </p>
+          )}
           {notification.type === 'comment' && notification.comment_content && (
             <p className="text-xs text-gray-700 mt-1 italic">
               "{notification.comment_content}"
@@ -268,6 +310,22 @@ export const NotificationsPage: React.FC = () => {
     return date.toLocaleString();
   };
 
+  // Obtenir l'icône en fonction du type de notification
+  const getNotificationIcon = (type: 'like' | 'comment' | 'retweet' | 'follow') => {
+    switch (type) {
+      case 'like':
+        return <FiHeart className="w-5 h-5 text-pink-500" />;
+      case 'comment':
+        return <FiMessageCircle className="w-5 h-5 text-blue-500" />;
+      case 'retweet':
+        return <FiRepeat className="w-5 h-5 text-green-500" />;
+      case 'follow':
+        return <FiUserPlus className="w-5 h-5 text-purple-500" />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold p-4 border-b">Notifications</h1>
@@ -283,9 +341,7 @@ export const NotificationsPage: React.FC = () => {
               <div className="flex">
                 <div className="flex-shrink-0 mr-3">
                   <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                    <span className="text-gray-600 font-bold">
-                      {notification.sender_username.charAt(0).toUpperCase()}
-                    </span>
+                    {getNotificationIcon(notification.type)}
                   </div>
                 </div>
                 <div className="flex-1">
@@ -293,20 +349,32 @@ export const NotificationsPage: React.FC = () => {
                     <Link href={`/profile/${notification.sender_username}`} className="font-bold hover:underline">
                       {notification.sender_username}
                     </Link>
-                    {notification.type === 'like' ? (
+                    {notification.type === 'like' && (
                       <span> a aimé votre tweet</span>
-                    ) : (
+                    )}
+                    {notification.type === 'comment' && (
                       <span> a commenté votre tweet</span>
                     )}
+                    {notification.type === 'retweet' && (
+                      <span> a retweeté votre tweet</span>
+                    )}
+                    {notification.type === 'follow' && (
+                      <span> a commencé à vous suivre</span>
+                    )}
                   </p>
-                  <Link href={`/tweet/${notification.tweet_id}`} className="block mt-1 text-gray-600 hover:underline">
-                    {notification.tweet_content}
-                  </Link>
+                  
+                  {notification.type !== 'follow' && notification.tweet_id && (
+                    <Link href={`/tweet/${notification.tweet_id}`} className="block mt-1 text-gray-600 hover:underline">
+                      {notification.tweet_content}
+                    </Link>
+                  )}
+                  
                   {notification.type === 'comment' && notification.comment_content && (
                     <p className="mt-2 p-2 bg-gray-100 rounded-lg text-gray-700 italic">
                       "{notification.comment_content}"
                     </p>
                   )}
+                  
                   <p className="text-xs text-gray-400 mt-2">
                     {formatDate(notification.created_at)}
                   </p>

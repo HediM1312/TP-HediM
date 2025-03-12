@@ -18,8 +18,8 @@ class Notification(BaseModel):
     sender_id: str
     sender_username: str
     type: str  # 'like', 'comment'
-    tweet_id: str
-    tweet_content: str
+    tweet_id: Optional[str] = None  # Rendu optionnel
+    tweet_content: Optional[str] = None  # Rendu optionnel
     comment_id: Optional[str] = None
     comment_content: Optional[str] = None
     read: bool = False
