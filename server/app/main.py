@@ -485,7 +485,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth, tweet
+from app.routes import auth, tweet, media
 
 app = FastAPI()
 
@@ -493,6 +493,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 
 app.include_router(auth.router, prefix="")
 app.include_router(tweet.router, prefix="")
+app.include_router(media.router, prefix="/media", tags=["media"])
+
+@app.get("/")
+async def root():
+    return {"message": "API Twitter Clone"}
 
 if __name__ == "__main__":
     import uvicorn

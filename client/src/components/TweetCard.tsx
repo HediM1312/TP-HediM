@@ -7,7 +7,8 @@ import { CommentSection } from '@/components/CommentSection';
 import WebcamCapture from '@/components/WebcamCapture';
 import EmotionReactions from '@/components/EmotionReactions';
 import { useAuth } from '@/context/AppContext';
-import { FiMessageCircle, FiHeart, FiRepeat, FiSmile } from 'react-icons/fi';
+import { FiMessageCircle, FiHeart, FiRepeat, FiSmile, FiMaximize2 } from 'react-icons/fi';
+import { getMediaUrl } from '@/services/api';
 
 interface TweetCardProps {
   tweet: Tweet;
@@ -25,9 +26,28 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
   const [isReacting, setIsReacting] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [retweetCount, setRetweetCount] = useState(tweet.retweet_count || 0);
-  const webcamContainerRef = useRef<HTMLDivElement>(null);
+  const [isMediaExpanded, setIsMediaExpanded] = useState(false);
 
-  // Format date without date-fns
+  const webcamContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const getMediaType = (mediaUrl?: string): 'image' | 'video' | null => {
+    if (!mediaUrl) return null;
+    
+    const extension = mediaUrl.split('.').pop()?.toLowerCase();
+    if (!extension) return null;
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+      return 'image';
+    } else if (['mp4', 'webm', 'ogg', 'mov'].includes(extension)) {
+      return 'video';
+    }
+    
+    return null;
+  };
+
+  // const mediaType = getMediaType(tweet.media_url);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString();
@@ -149,6 +169,12 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
     }
   };
 
+
+    // Toggle media expansion
+    const toggleMediaExpansion = () => {
+      setIsMediaExpanded(!isMediaExpanded);
+    };
+
   // Gérer la capture d'image pour réaction
   const handleImageCaptured = async (imageData: string) => {
     if (!user) return;
@@ -228,6 +254,53 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
           </div>
 
           <p className="mt-2 text-white">{tweet.content}</p>
+
+          {/* Affichage des médias */}
+          {tweet.media_id && tweet.media_type && (
+            <div className={`mt-3 relative rounded-xl overflow-hidden ${
+              isMediaExpanded ? 'fixed inset-0 z-50 bg-black flex items-center justify-center p-4' : 'max-h-96'
+            }`}>
+              {/* Bouton pour agrandir/réduire le média */}
+              <button 
+                onClick={toggleMediaExpansion}
+                className={`absolute z-10 p-2 bg-black/50 rounded-full text-white ${
+                  isMediaExpanded ? 'top-4 right-4' : 'top-2 right-2'
+                }`}
+              >
+                <FiMaximize2 className="w-5 h-5" />
+              </button>
+              
+              {tweet.media_type === 'image' && (
+                <img
+                  src={getMediaUrl(tweet.media_id)}
+                  alt="Media content"
+                  className={`rounded-xl ${
+                    isMediaExpanded ? 'max-h-screen max-w-full object-contain' : 'w-full object-cover'
+                  }`}
+                  onClick={isMediaExpanded ? undefined : toggleMediaExpansion}
+                />
+              )}
+              
+              {tweet.media_type === 'video' && (
+                <video
+                  ref={videoRef}
+                  src={getMediaUrl(tweet.media_id)}
+                  controls
+                  className={`rounded-xl ${
+                    isMediaExpanded ? 'max-h-screen max-w-full' : 'w-full max-h-96'
+                  }`}
+                  onClick={e => {
+                    if (!isMediaExpanded) {
+                      e.preventDefault();
+                      toggleMediaExpansion();
+                    }
+                  }}
+                />
+              )}
+            </div>
+          )}
+
+
 
           {/* Affichage des réactions émotionnelles */}
           <div className="mt-2">

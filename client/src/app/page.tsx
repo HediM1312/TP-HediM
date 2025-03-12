@@ -45,11 +45,11 @@ const HomePage = () => {
     fetchTweets();
   }, [isAuthenticated]);
 
-  const handleTweetSubmit = async (content: string) => {
+  const handleTweetSubmit = async (content: string, mediaFile?: File ) => {
     if (!user) return;
 
     try {
-      const newTweet = await createTweet(content);
+      const newTweet = await createTweet(content, mediaFile);
       setTweets(prev => [newTweet, ...prev]);
     } catch (error) {
       console.error('Error creating tweet:', error);

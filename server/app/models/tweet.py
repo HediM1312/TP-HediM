@@ -1,10 +1,11 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 class TweetCreate(BaseModel):
     content: str
-    media_url: Optional[str] = None
+    media_id: Optional[str] = None  # ID du média dans GridFS
+    media_type: Optional[Literal['image', 'video']] = None
     original_tweet_id: Optional[str] = None
 
 class Tweet(BaseModel):
@@ -13,9 +14,11 @@ class Tweet(BaseModel):
     author_id: str
     author_username: str
     created_at: datetime
+    media_id: Optional[str] = None  # ID du média dans GridFS
+    media_type: Optional[Literal['image', 'video']] = None
     like_count: int = 0
     comment_count: int = 0
-    retweet_count: int = 0  # Ajout
-    is_retweet: bool = False  # Ajout
-    original_tweet_id: Optional[str] = None  # Ajout
-    original_author_username: Optional[str] = None  # Ajout
+    retweet_count: int = 0
+    is_retweet: bool = False
+    original_tweet_id: Optional[str] = None
+    original_author_username: Optional[str] = None

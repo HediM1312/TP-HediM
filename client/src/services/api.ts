@@ -46,9 +46,52 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
-export const createTweet = async (content: string) => {
-  const response = await api.post<Tweet>('/tweets', { content });
+export const uploadMedia = async (mediaFile: File) => {
+  const formData = new FormData();
+  formData.append('file', mediaFile);
+  
+  const response = await axios.post<{ media_id: string, media_type: string }>(
+    `${API_URL}/media/upload`, 
+    formData, 
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    }
+  );
+  
   return response.data;
+};
+
+export const createTweet = async (content: string, mediaFile?: File) => {
+  // Si aucun fichier média n'est fourni, utiliser l'API JSON standard
+  if (!mediaFile) {
+    const response = await api.post<Tweet>('/tweets', { content });
+    return response.data;
+  }
+  
+  // Uploader d'abord le média
+  const mediaData = await uploadMedia(mediaFile);
+  
+  // Puis créer le tweet avec la référence au média
+  const formData = new FormData();
+  formData.append('content', content);
+  formData.append('media_id', mediaData.media_id);
+  formData.append('media_type', mediaData.media_type);
+  
+  const response = await axios.post<Tweet>(`${API_URL}/tweets/with-media`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    }
+  });
+  
+  return response.data;
+};
+
+export const getMediaUrl = (mediaId: string) => {
+  return `${API_URL}/media/${mediaId}`;
 };
 
 export const getTweets = async () => {

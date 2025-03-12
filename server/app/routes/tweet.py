@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from bson import ObjectId
-from app.database import db
+from app.database import db, fs
 from app.models.tweet import TweetCreate, Tweet
 from app.models.comment import Comment, CommentCreate
 from app.models.like import Like
@@ -15,8 +15,54 @@ import cv2
 import numpy as np
 from fer import FER
 import uuid
+import shutil
+from pathlib import Path
 
 router = APIRouter()
+
+
+
+# Configurer un dossier pour les médias uploadés
+MEDIA_DIR = Path("media")
+MEDIA_DIR.mkdir(exist_ok=True)
+
+# Sous-dossiers pour les différents types de médias
+IMAGES_DIR = MEDIA_DIR / "images"
+VIDEOS_DIR = MEDIA_DIR / "videos"
+IMAGES_DIR.mkdir(exist_ok=True)
+VIDEOS_DIR.mkdir(exist_ok=True)
+
+async def save_media_file(file: UploadFile) -> Optional[str]:
+    if not file:
+        return None
+    
+    # Get file extension and determine media type
+    file_ext = file.filename.split(".")[-1].lower()
+    
+    # Define allowed extensions
+    allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+    allowed_video_extensions = {"mp4", "webm", "mov", "avi"}
+    
+    if file_ext in allowed_image_extensions:
+        media_type = "images"
+    elif file_ext in allowed_video_extensions:
+        media_type = "videos"
+    else:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Format de fichier non supporté. Extensions autorisées: {allowed_image_extensions.union(allowed_video_extensions)}"
+        )
+    
+    # Create a unique filename
+    filename = f"{uuid.uuid4()}.{file_ext}"
+    file_path = MEDIA_DIR / media_type / filename
+    
+    # Save the file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Return the relative URL path
+    return f"/media/{media_type}/{filename}"
 
 @router.post("/tweets", response_model=Tweet)
 async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user)):
@@ -26,10 +72,51 @@ async def create_tweet(tweet: TweetCreate, current_user=Depends(get_current_user
         "author_username": current_user.username,
         "content": tweet.content,
         "media_url": tweet.media_url if tweet.media_url else None,
-        "created_at": datetime.utcnow()
+        "media_type": "image" if tweet.media_url and any(ext in tweet.media_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']) else 
+                     "video" if tweet.media_url and any(ext in tweet.media_url.lower() for ext in ['.mp4', '.webm', '.mov', '.avi']) else None,
+        "created_at": datetime.utcnow(),
+        "like_count": 0,
+        "comment_count": 0,
+        "retweet_count": 0,
+        "is_retweet": False
     }
     result = db.tweets.insert_one(tweet_data)
     return Tweet(id=str(result.inserted_id), **tweet_data)
+
+@router.post("/tweets/with-media", response_model=Tweet)
+async def create_tweet_with_media(
+    content: str = Form(...),
+    media_id: str = Form(None),
+    media_type: str = Form(None),
+    current_user: User = Depends(get_current_user)
+):
+    # Vérifier si le média existe si un media_id est fourni
+    if media_id:
+        try:
+            file_exists = fs.exists(ObjectId(media_id))
+            if not file_exists:
+                raise HTTPException(status_code=404, detail="Média non trouvé")
+        except:
+            raise HTTPException(status_code=400, detail="ID de média invalide")
+    
+    # Créer le tweet avec la référence au média
+    tweet_data = {
+        "author_id": current_user.id,
+        "author_username": current_user.username,
+        "content": content,
+        "media_id": media_id,
+        "media_type": media_type,
+        "created_at": datetime.utcnow(),
+        "like_count": 0,
+        "comment_count": 0,
+        "retweet_count": 0,
+        "is_retweet": False
+    }
+    
+    result = db.tweets.insert_one(tweet_data)
+    tweet_data["id"] = str(result.inserted_id)
+    
+    return Tweet(**tweet_data)
 
 @router.get("/tweets", response_model=List[Tweet])
 async def read_tweets():

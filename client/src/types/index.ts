@@ -15,10 +15,12 @@ export interface Tweet {
   created_at: string;
   like_count: number;
   comment_count: number;
-  retweet_count: number; // Ajout
-  is_retweet: boolean; // Ajout
-  original_tweet_id?: string; // Ajout
-  original_author_username?: string; // Ajout
+  retweet_count: number;
+  is_retweet: boolean;
+  original_tweet_id?: string;
+  original_author_username?: string;
+  media_id?: string;  // ID du média dans MongoDB GridFS
+  media_type?: 'image' | 'video';  // Type de média
 }
 
 export interface Comment {
