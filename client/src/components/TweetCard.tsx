@@ -17,7 +17,7 @@ interface TweetCardProps {
 }
 
 export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) => {
-  const { user } = useAuth();
+  const { user, isDarkMode } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(tweet.like_count);
   const [showComments, setShowComments] = useState(false);
@@ -34,26 +34,23 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
 
 
   const renderContent = (content: string) => {
-    // Diviser le contenu en fonction des mentions
     const parts = content.split(/(@\w+)/g);
     
     return (
-      <p className="mt-2 text-white">
+      <p className={`mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
         {parts.map((part, index) => {
           if (part.match(/^@\w+/)) {
-            // C'est une mention, rendre en couleur et avec lien
-            const username = part.substring(1); // Enlever le @
+            const username = part.substring(1);
             return (
               <Link 
                 key={index} 
                 href={`/profile/${username}`}
-                className="text-purple-400 hover:underline"
+                className={`${isDarkMode ? 'text-purple-400' : 'text-purple-600'} hover:underline`}
               >
                 {part}
               </Link>
             );
           }
-          // Texte normal
           return <span key={index}>{part}</span>;
         })}
       </p>
@@ -255,7 +252,11 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
   };
 
   return (
-    <div className="p-4 border-b border-gray-800 hover:bg-purple-500/5 transition-all">
+    <div className={`p-4 border-b ${
+      isDarkMode 
+        ? 'border-gray-800 hover:bg-purple-500/5' 
+        : 'border-gray-200 hover:bg-purple-500/5'
+    } transition-all`}>
       {tweet.is_retweet && (
         <div className="flex items-center text-sm text-purple-400 mb-2">
           <FiRepeat className="w-4 h-4 mr-2" />
@@ -265,28 +266,28 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
 
       <div className="flex">
         <div className="flex-shrink-0">
-          {/* <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
-            {tweet.author_username.charAt(0).toUpperCase()}
-          </div> */}
           <UserAvatar username={tweet.author_username} size="medium" className="rounded-xl" />
         </div>
 
         <div className="ml-3 flex-grow">
-          <div className="flex items-center">
-            <Link 
-              href={`/profile/${tweet.author_username}`} 
-              className="font-semibold text-white hover:text-purple-400 transition-colors"
-            >
-              {tweet.author_username}
-            </Link>
-            <span className="ml-2 text-sm text-purple-400">
-              {formatDate(tweet.created_at)}
-            </span>
-          </div>
+        <div className="flex items-center">
+  <Link 
+    href={`/profile/${tweet.author_username}`} 
+    className={`font-semibold ${
+      isDarkMode 
+        ? 'text-white hover:text-purple-400' 
+        : 'text-gray-900 hover:text-purple-600'
+    } transition-colors`}
+  >
+    {tweet.author_username}
+  </Link>
+  <span className="ml-2 text-sm text-purple-400">
+    {formatDate(tweet.created_at)}
+  </span>
+</div>
 
-          <p className="mt-2 text-white">{renderContent(tweet.content)}</p>
+{renderContent(tweet.content)}
 
-          {/* Affichage des tags */}
           {tweet.tags && tweet.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
               {(tweet.tags || []).map((tag, index) => (
@@ -300,13 +301,10 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
             </div>
           )}
 
-
-          {/* Affichage des médias */}
           {tweet.media_id && tweet.media_type && (
             <div className={`mt-3 relative rounded-xl overflow-hidden ${
               isMediaExpanded ? 'fixed inset-0 z-50 bg-black flex items-center justify-center p-4' : 'max-h-96'
             }`}>
-              {/* Bouton pour agrandir/réduire le média */}
               <button 
                 onClick={toggleMediaExpansion}
                 className={`absolute z-10 p-2 bg-black/50 rounded-full text-white ${
@@ -346,56 +344,69 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
             </div>
           )}
 
-
-
-          {/* Affichage des réactions émotionnelles */}
           <div className="mt-2">
             <EmotionReactions tweetId={tweet.id} userReaction={userReaction} />
           </div>
 
           <div className="mt-3 flex space-x-6">
-            {/* Bouton commentaires */}
             <button 
               onClick={toggleComments}
-              className="flex items-center text-gray-400 hover:text-purple-400 transition-colors group"
+              className={`flex items-center ${
+                isDarkMode 
+                  ? 'text-gray-400 hover:text-purple-400' 
+                  : 'text-gray-500 hover:text-purple-600'
+              } transition-colors group`}
             >
               <FiMessageCircle className="w-5 h-5 mr-2 group-hover:text-purple-400" />
               <span>{tweet.comment_count}</span>
             </button>
 
-            {/* Bouton retweet */}
             <button 
               onClick={handleRetweetToggle}
               disabled={isLoading}
               className={`flex items-center transition-colors group ${
-                isRetweeted ? 'text-green-500' : 'text-gray-400 hover:text-green-400'
+                isRetweeted 
+                  ? 'text-green-500' 
+                  : isDarkMode 
+                    ? 'text-gray-400 hover:text-green-400'
+                    : 'text-gray-500 hover:text-green-600'
               }`}
             >
               <FiRepeat className={`w-5 h-5 mr-2 ${
-                isRetweeted ? 'text-green-500' : 'group-hover:text-green-400'
+                isRetweeted 
+                  ? 'text-green-500' 
+                  : 'group-hover:text-green-400'
               }`} />
               <span>{retweetCount}</span>
             </button>
 
-            {/* Bouton like */}
             <button 
               onClick={handleLikeToggle}
               disabled={isLoading}
               className={`flex items-center transition-colors group ${
-                isLiked ? 'text-pink-500' : 'text-gray-400 hover:text-pink-400'
+                isLiked 
+                  ? 'text-pink-500' 
+                  : isDarkMode
+                    ? 'text-gray-400 hover:text-pink-400'
+                    : 'text-gray-500 hover:text-pink-600'
               }`}
             >
               <FiHeart className={`w-5 h-5 mr-2 ${
-                isLiked ? 'text-pink-500 fill-current' : 'group-hover:text-pink-400'
+                isLiked 
+                  ? 'text-pink-500 fill-current' 
+                  : 'group-hover:text-pink-400'
               }`} />
               <span>{likeCount}</span>
             </button>
 
-            {/* Bouton réaction */}
             <button 
               onClick={toggleReaction}
               className={`flex items-center transition-colors group ${
-                showWebcam ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-400'
+                showWebcam 
+                  ? 'text-yellow-500' 
+                  : isDarkMode
+                    ? 'text-gray-400 hover:text-yellow-400'
+                    : 'text-gray-500 hover:text-yellow-600'
               }`}
             >
               <FiSmile className="w-5 h-5 mr-2 group-hover:text-yellow-400" />
@@ -403,13 +414,18 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
             </button>
           </div>
 
-          {/* Webcam pour réaction émotionnelle */}
           {showWebcam && (
             <div 
               ref={webcamContainerRef} 
-              className="mt-4 p-4 bg-gray-800/50 rounded-xl border border-gray-700"
+              className={`mt-4 p-4 rounded-xl border ${
+                isDarkMode 
+                  ? 'bg-gray-800/50 border-gray-700' 
+                  : 'bg-gray-100/50 border-gray-200'
+              }`}
             >
-              <div className="text-sm font-medium mb-2 text-purple-400">
+              <div className={`text-sm font-medium mb-2 ${
+                isDarkMode ? 'text-purple-400' : 'text-purple-600'
+              }`}>
                 {isReacting ? 
                   "Analyse de votre réaction en cours..." : 
                   "Exprimez votre réaction à ce tweet"
@@ -423,9 +439,10 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
             </div>
           )}
 
-          {/* Section commentaires */}
           {showComments && (
-            <div className="mt-4 border-t border-gray-800 pt-4">
+            <div className={`mt-4 border-t pt-4 ${
+              isDarkMode ? 'border-gray-800' : 'border-gray-200'
+            }`}>
               <CommentSection 
                 tweetId={tweet.id} 
                 onCommentAdded={handleCommentAdded} 
@@ -435,5 +452,4 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
         </div>
       </div>
     </div>
-  );
-};
+  )};

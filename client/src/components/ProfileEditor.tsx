@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiCamera, FiX, FiSave, FiUpload } from 'react-icons/fi';
+import { FiCamera, FiX, FiSave } from 'react-icons/fi';
 import { User } from '@/types';
 import { uploadProfilePhoto, uploadBannerPhoto, updateUserProfile, getUserMediaUrl } from '@/services/api';
 import { useAuth } from '@/context/AppContext';
@@ -12,9 +12,16 @@ interface ProfileEditorProps {
   isVisible: boolean;
   onClose: () => void;
   onProfileUpdated: (updatedUser: User) => void;
+  isDarkMode: boolean;
 }
 
-const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose, onProfileUpdated }) => {
+const ProfileEditor: React.FC<ProfileEditorProps> = ({ 
+  user, 
+  isVisible, 
+  onClose, 
+  onProfileUpdated,
+  isDarkMode 
+}) => {
   const [bio, setBio] = useState(user.bio || '');
   const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(
@@ -29,32 +36,25 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
   
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const bannerPhotoInputRef = useRef<HTMLInputElement>(null);
-  const { updateUserInContext } = useAuth();
+  const { updateUserInContext, refreshUserData } = useAuth();
 
   const handleProfilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
-      // Vérifier le type de fichier
-      const fileType = file.type.split('/')[0];
-      if (fileType !== 'image') {
+      if (file.type.split('/')[0] !== 'image') {
         setError('Seules les images sont acceptées pour la photo de profil');
         return;
       }
       
-      // Vérifier la taille (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError('La photo de profil est trop volumineuse (max 5 MB)');
         return;
       }
       
       setProfilePhotoFile(file);
-      
-      // Créer un aperçu
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setProfilePhotoPreview(e.target?.result as string);
-      };
+      reader.onload = (e) => setProfilePhotoPreview(e.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -63,26 +63,19 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
-      // Vérifier le type de fichier
-      const fileType = file.type.split('/')[0];
-      if (fileType !== 'image') {
+      if (file.type.split('/')[0] !== 'image') {
         setError('Seules les images sont acceptées pour la bannière');
         return;
       }
       
-      // Vérifier la taille (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError('La bannière est trop volumineuse (max 5 MB)');
         return;
       }
       
       setBannerPhotoFile(file);
-      
-      // Créer un aperçu
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setBannerPhotoPreview(e.target?.result as string);
-      };
+      reader.onload = (e) => setBannerPhotoPreview(e.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -92,39 +85,22 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
     setError(null);
     
     try {
-      // Variables pour stocker les informations mises à jour
       let updatedProfilePictureId = user.profile_picture_id;
       let updatedBannerPictureId = user.banner_picture_id;
       
-      // Télécharger la photo de profil si elle a été modifiée
       if (profilePhotoFile) {
         const profileResponse = await uploadProfilePhoto(profilePhotoFile);
         updatedProfilePictureId = profileResponse.profile_picture_id;
       }
       
-      // Télécharger la bannière si elle a été modifiée
       if (bannerPhotoFile) {
         const bannerResponse = await uploadBannerPhoto(bannerPhotoFile);
         updatedBannerPictureId = bannerResponse.banner_picture_id;
       }
       
-      // Mettre à jour la bio
-      const profileResponse = await updateUserProfile(bio);
-      
-      // Récupérer les données utilisateur complètes depuis le serveur
-      // C'est important pour s'assurer que nous avons toutes les données à jour
-      const { refreshUserData } = useAuth();
+      await updateUserProfile(bio);
       await refreshUserData();
       
-      // Obtenir les données utilisateur mises à jour depuis le contexte
-      const { user: updatedUser } = useAuth();
-      
-      // Notifier le parent du composant
-      if (updatedUser) {
-        onProfileUpdated(updatedUser);
-      }
-      
-      // Fermer l'éditeur
       onClose();
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -133,7 +109,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
       setIsSubmitting(false);
     }
   };
-  
+
   if (!isVisible) return null;
 
   return (
@@ -142,13 +118,25 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-gray-800 rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+        className={`rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto ${
+          isDarkMode ? 'bg-gray-900' : 'bg-white'
+        }`}
       >
-        <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white">Modifier votre profil</h2>
+        <div className={`p-4 border-b flex justify-between items-center ${
+          isDarkMode ? 'border-gray-800' : 'border-gray-200'
+        }`}>
+          <h2 className={`text-xl font-bold ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Modifier votre profil
+          </h2>
           <button 
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+            className={`p-2 rounded-full transition-colors ${
+              isDarkMode 
+                ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
           >
             <FiX className="w-5 h-5" />
           </button>
@@ -157,7 +145,11 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
         <div className="p-4">
           {/* Bannière */}
           <div className="relative mb-12">
-            <div className={`w-full h-32 rounded-lg overflow-hidden ${!bannerPhotoPreview ? 'bg-gray-700' : ''}`}>
+            <div className={`w-full h-32 rounded-lg overflow-hidden ${
+              !bannerPhotoPreview 
+                ? isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                : ''
+            }`}>
               {bannerPhotoPreview && (
                 <img 
                   src={bannerPhotoPreview} 
@@ -181,14 +173,20 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
               >
                 <div className="flex flex-col items-center">
                   <FiCamera className="w-8 h-8 text-white mb-2" />
-                  <span className="text-white text-sm font-medium">Changer la bannière</span>
+                  <span className="text-white text-sm font-medium">
+                    Changer la bannière
+                  </span>
                 </div>
               </button>
             </div>
             
             {/* Photo de profil */}
             <div className="absolute -bottom-10 left-4">
-              <div className={`w-24 h-24 rounded-full ${!profilePhotoPreview ? 'bg-purple-500' : ''} border-4 border-gray-800 overflow-hidden flex items-center justify-center`}>
+              <div className={`w-24 h-24 rounded-full ${
+                !profilePhotoPreview ? 'bg-purple-500' : ''
+              } border-4 ${
+                isDarkMode ? 'border-gray-900' : 'border-white'
+              } overflow-hidden flex items-center justify-center`}>
                 {profilePhotoPreview ? (
                   <img 
                     src={profilePhotoPreview} 
@@ -222,7 +220,9 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
           
           {/* Formulaire bio */}
           <div className="mt-6">
-            <label htmlFor="bio" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="bio" className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Biographie
             </label>
             <textarea
@@ -231,10 +231,16 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
               onChange={(e) => setBio(e.target.value)}
               maxLength={160}
               placeholder="Parlez-nous de vous..."
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-none"
+              className={`w-full border rounded-lg p-3 transition-all resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                isDarkMode 
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+              }`}
               rows={4}
             />
-            <div className="text-right text-sm text-gray-400 mt-1">
+            <div className={`text-right text-sm mt-1 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+            }`}>
               {bio.length}/160 caractères
             </div>
           </div>
@@ -246,7 +252,11 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-red-500/20 text-red-400 p-3 rounded-lg mt-4"
+                className={`p-3 rounded-lg mt-4 ${
+                  isDarkMode 
+                    ? 'bg-red-500/20 text-red-400'
+                    : 'bg-red-100 text-red-600'
+                }`}
               >
                 {error}
               </motion.div>
@@ -267,7 +277,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, isVisible, onClose,
             >
               {isSubmitting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
                   <span>Enregistrement...</span>
                 </>
               ) : (

@@ -8,20 +8,24 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  isDarkMode: boolean;
+  loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
-  loading: boolean;
+  toggleTheme: () => void;
   updateUserInContext: (updatedUser: User) => void;
-  refreshUserData: () => Promise<void>; // Nouvelle fonction pour rafraîchir les données
+  refreshUserData: () => Promise<void>;
 }
 
-const defaultAuthState = {
+const defaultAuthState: AuthContextType = {
   user: null,
   token: null,
   isAuthenticated: false,
+  isDarkMode: true,
+  loading: true,
   login: () => {},
   logout: () => {},
-  loading: true,
+  toggleTheme: () => {},
   updateUserInContext: () => {},
   refreshUserData: async () => {},
 };
@@ -35,57 +39,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // Fonction pour mettre à jour les données utilisateur
+  // Initialisation du thème
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    setIsDarkMode(savedTheme ? savedTheme === 'dark' : true);
+  }, []);
+
+  // Gestion du thème
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+  };
+
+  // Mise à jour des données utilisateur
   const updateUserInContext = (updatedUser: User) => {
     setUser(updatedUser);
   };
 
-  // Fonction pour rafraîchir les données utilisateur depuis le serveur
+  // Rafraîchissement des données utilisateur
   const refreshUserData = async () => {
+    if (!isAuthenticated) return;
+
     try {
-      if (isAuthenticated) {
-        const userData = await getCurrentUser();
-        setUser(userData);
-      }
+      const userData = await getCurrentUser();
+      setUser(userData);
     } catch (error) {
       console.error('Erreur lors du rafraîchissement des données utilisateur:', error);
     }
   };
 
+  // Initialisation de l'authentification
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Vérifier si un token existe dans le localStorage
         const storedToken = localStorage.getItem('token');
-        console.log('Token au chargement:', storedToken);
         
         if (storedToken) {
           try {
-            // Récupérer les informations utilisateur
-            console.log('Tentative de récupération des informations utilisateur...');
             const userData = await getCurrentUser();
-            console.log('Informations utilisateur récupérées:', userData);
             
-            // S'assurer que toutes les données sont bien présentes
             if (userData) {
-              console.log('Profile picture ID:', userData.profile_picture_id);
-              console.log('Banner picture ID:', userData.banner_picture_id);
-              console.log('Bio:', userData.bio);
+              setUser(userData);
+              setToken(storedToken);
+              setIsAuthenticated(true);
             }
-            
-            setUser(userData);
-            setToken(storedToken);
-            setIsAuthenticated(true);
-          } catch (userError) {
-            console.error('Erreur lors de la récupération des informations utilisateur:', userError);
-            // Token invalide ou expiré
+          } catch (error) {
+            console.error('Erreur lors de la récupération des informations utilisateur:', error);
             localStorage.removeItem('token');
           }
         }
       } catch (error) {
-        // En cas d'erreur, réinitialiser l'état
-        console.error('Auth initialization error:', error);
+        console.error('Erreur d\'initialisation de l\'authentification:', error);
         localStorage.removeItem('token');
       } finally {
         setLoading(false);
@@ -95,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
+  // Fonctions d'authentification
   const login = (newToken: string, userData: User) => {
     localStorage.setItem('token', newToken);
     setUser(userData);
@@ -109,17 +117,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
   };
 
+  const contextValue: AuthContextType = {
+    user,
+    token,
+    isAuthenticated,
+    isDarkMode,
+    loading,
+    login,
+    logout,
+    toggleTheme,
+    updateUserInContext,
+    refreshUserData,
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      token, 
-      isAuthenticated, 
-      login, 
-      logout, 
-      loading, 
-      updateUserInContext,
-      refreshUserData
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

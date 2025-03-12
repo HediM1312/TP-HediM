@@ -22,7 +22,7 @@ export default function ProfilePage({ username }: { username: string }) {
   const [activeTab, setActiveTab] = useState<TabType>('tweets');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { user, isAuthenticated, loading: authLoading, refreshUserData } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, refreshUserData , isDarkMode } = useAuth();
   const [userStats, setUserStats] = useState({ followers_count: 0, following_count: 0 });
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
@@ -197,7 +197,7 @@ export default function ProfilePage({ username }: { username: string }) {
     
     if (currentTweets.length === 0) {
       return (
-        <div className="text-center p-8 text-gray-400">
+        <div className={`text-center p-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
           {emptyMessage}
         </div>
       );
@@ -211,27 +211,33 @@ export default function ProfilePage({ username }: { username: string }) {
       </div>
     );
   };
-
+  
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className={`min-h-screen flex items-center justify-center ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
         <div className="text-center">
           <div className="spinner w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-400">Chargement...</p>
+          <p className={`mt-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Chargement...
+          </p>
         </div>
       </div>
     );
   }
-
+  
   return (
-    <div className="min-h-screen bg-gray-900">
-      <div className="border-b border-gray-800">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className={`border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
         <div className="p-4">
-          <h1 className="text-xl font-bold text-white">Profil</h1>
+          <h1 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Profil
+          </h1>
         </div>
-
+  
         {/* Bannière */}
-        <div className="relative bg-gray-800 h-32 overflow-hidden">
+        <div className={`relative ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} h-32 overflow-hidden`}>
           {profileUser?.banner_picture_id && (
             <img 
               src={getUserMediaUrl(profileUser.banner_picture_id) || undefined} 
@@ -243,19 +249,25 @@ export default function ProfilePage({ username }: { username: string }) {
           {isOwnProfile && (
             <button 
               onClick={() => setShowProfileEditor(true)}
-              className="absolute bottom-2 right-2 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+              className={`absolute bottom-2 right-2 p-2 ${
+                isDarkMode 
+                  ? 'bg-black/50 text-white hover:bg-black/70' 
+                  : 'bg-white/50 text-gray-900 hover:bg-white/70'
+              } rounded-full transition-colors`}
               title="Modifier le profil"
             >
               <FiEdit className="w-5 h-5" />
             </button>
           )}
         </div>
-
-        <div className="p-4 border-b border-gray-800">
+  
+        <div className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
           <div className="relative">
             {/* Photo de profil */}
             <div className="absolute -top-12 left-0">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-900 flex items-center justify-center bg-purple-500">
+              <div className={`w-24 h-24 rounded-full overflow-hidden border-4 ${
+                isDarkMode ? 'border-gray-900' : 'border-white'
+              } flex items-center justify-center bg-purple-500`}>
                 {profileUser?.profile_picture_id ? (
                   <img 
                     src={getUserMediaUrl(profileUser.profile_picture_id) || undefined}
@@ -280,7 +292,11 @@ export default function ProfilePage({ username }: { username: string }) {
               ) : (
                 <button
                   onClick={() => setShowProfileEditor(true)}
-                  className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-full transition-colors flex items-center"
+                  className={`px-4 py-1.5 rounded-full transition-colors flex items-center ${
+                    isDarkMode 
+                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                  }`}
                 >
                   <FiEdit className="w-4 h-4 mr-2" />
                   <span>Éditer le profil</span>
@@ -289,74 +305,69 @@ export default function ProfilePage({ username }: { username: string }) {
             </div>
             
             <div className="pt-16">
-              <h2 className="text-xl font-bold text-white">{username}</h2>
-              <p className="text-gray-400">@{username}</p>
+              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {username}
+              </h2>
+              <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>@{username}</p>
               
               {/* Bio */}
               {profileUser?.bio && (
-                <p className="mt-2 text-white">{profileUser.bio}</p>
+                <p className={`mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {profileUser.bio}
+                </p>
               )}
               
               {/* Statistiques */}
               <div className="mt-3 flex space-x-4">
                 <button 
                   onClick={() => setShowFollowing(true)}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-colors`}
                 >
-                  <span className="text-white font-bold">{userStats.following_count}</span> abonnements
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'} font-bold>
+                    {userStats.following_count}
+                  </span> abonnements
                 </button>
                 <button 
                   onClick={() => setShowFollowers(true)}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-colors`}
                 >
-                  <span className="text-white font-bold">{userStats.followers_count}</span> abonnés
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'} font-bold>
+                    {userStats.followers_count}
+                  </span> abonnés
                 </button>
-                <span className="text-gray-400">
-                  <span className="text-white font-bold">{tweets.length}</span> tweets
+                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'} font-bold>
+                    {tweets.length}
+                  </span> tweets
                 </span>
               </div>
             </div>
           </div>
         </div>
       </div>
-
+  
       {/* Onglets de navigation */}
-      <div className="flex border-b border-gray-800">
-        <button 
-          onClick={() => handleTabChange('tweets')}
-          className={`flex-1 py-3 text-center font-medium transition-colors ${
-            activeTab === 'tweets' 
-              ? 'text-purple-500 border-b-2 border-purple-500' 
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          Tweets
-        </button>
-        <button 
-          onClick={() => handleTabChange('likes')}
-          className={`flex-1 py-3 text-center font-medium transition-colors ${
-            activeTab === 'likes' 
-              ? 'text-purple-500 border-b-2 border-purple-500' 
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          J'aime
-        </button>
-        <button 
-          onClick={() => handleTabChange('retweets')}
-          className={`flex-1 py-3 text-center font-medium transition-colors ${
-            activeTab === 'retweets' 
-              ? 'text-purple-500 border-b-2 border-purple-500' 
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          Retweets
-        </button>
+      <div className={`flex border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+        {['tweets', 'likes', 'retweets'].map((tab) => (
+          <button 
+            key={tab}
+            onClick={() => handleTabChange(tab as TabType)}
+            className={`flex-1 py-3 text-center font-medium transition-colors ${
+              activeTab === tab
+                ? 'text-purple-500 border-b-2 border-purple-500'
+                : isDarkMode
+                  ? 'text-gray-400 hover:text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            {tab === 'tweets' ? 'Tweets' : tab === 'likes' ? "J'aime" : 'Retweets'}
+          </button>
+        ))}
       </div>
-
+  
       {/* Contenu selon l'onglet actif */}
       {renderActiveContent()}
-
+  
       {/* Éditeur de profil */}
       {showProfileEditor && profileUser && (
         <ProfileEditor 
@@ -364,21 +375,23 @@ export default function ProfilePage({ username }: { username: string }) {
           isVisible={showProfileEditor}
           onClose={() => setShowProfileEditor(false)}
           onProfileUpdated={handleProfileUpdate}
+          isDarkMode={isDarkMode}
         />
       )}
-
+  
       {/* Modales pour les listes d'abonnés/abonnements */}
       <FollowersList 
         username={username} 
         isVisible={showFollowers} 
-        onClose={() => setShowFollowers(false)} 
+        onClose={() => setShowFollowers(false)}
+        isDarkMode={isDarkMode}
       />
       
       <FollowingList 
         username={username} 
         isVisible={showFollowing} 
-        onClose={() => setShowFollowing(false)} 
+        onClose={() => setShowFollowing(false)}
+        isDarkMode={isDarkMode}
       />
     </div>
-  );
-}
+  )};

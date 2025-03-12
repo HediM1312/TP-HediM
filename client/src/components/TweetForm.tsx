@@ -27,7 +27,7 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const mentionMenuRef = useRef<HTMLDivElement>(null);
-    const {user} = useAuth();
+    const { user, isDarkMode } = useAuth();
     const [tags, setTags] = useState<string[]>([]);
     const [newTag, setNewTag] = useState('');
 
@@ -192,7 +192,11 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
             initial={{opacity: 0, y: -20}}
             animate={{opacity: 1, y: 0}}
             transition={{duration: 0.3}}
-            className="p-4 border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm"
+            className={`p-4 border-b ${
+                isDarkMode 
+                    ? 'border-gray-800 bg-gray-900/80' 
+                    : 'border-gray-200 bg-white/80'
+            } backdrop-blur-sm`}
         >
             <div className="flex">
                 <motion.div
@@ -200,23 +204,26 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                     whileHover={{scale: 1.05}}
                     transition={{type: "spring", stiffness: 400, damping: 10}}
                 >
-                    <div
-                        className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
                         {user?.username?.[0]?.toUpperCase() || 'U'}
                     </div>
                 </motion.div>
-
+    
                 <div className="ml-3 flex-grow relative">
-            <textarea
-                ref={textareaRef}
-                className="w-full bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none min-h-[80px]"
-                placeholder="Quoi de neuf ? Utilisez @ pour mentionner quelqu'un"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                maxLength={280}
-            />
-
-                    {/* ✅ Section des tags */}
+                    <textarea
+                        ref={textareaRef}
+                        className={`w-full bg-transparent ${
+                            isDarkMode 
+                                ? 'text-white placeholder-gray-400' 
+                                : 'text-gray-900 placeholder-gray-500'
+                        } resize-none focus:outline-none min-h-[80px]`}
+                        placeholder="Quoi de neuf ? Utilisez @ pour mentionner quelqu'un"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        maxLength={280}
+                    />
+    
+                    {/* Section des tags */}
                     <div className="flex flex-wrap items-center space-x-2 mt-3">
                         {tags.map((tag, index) => (
                             <div key={index}
@@ -231,13 +238,17 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                                 </button>
                             </div>
                         ))}
-
+    
                         <input
                             type="text"
                             placeholder="Ajouter un tag..."
                             value={newTag}
                             onChange={(e) => setNewTag(e.target.value)}
-                            className="px-3 py-1 rounded-full border border-gray-700 bg-transparent text-white focus:ring focus:ring-purple-500"
+                            className={`px-3 py-1 rounded-full border ${
+                                isDarkMode 
+                                    ? 'border-gray-700 bg-transparent text-white' 
+                                    : 'border-gray-300 bg-transparent text-gray-900'
+                            } focus:ring focus:ring-purple-500`}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && newTag.trim()) {
                                     e.preventDefault();
@@ -248,8 +259,7 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                                 }
                             }}
                         />
-
-                        {/* ✅ Ajout du bouton "Tag +" ici */}
+    
                         <button
                             type="button"
                             onClick={() => {
@@ -263,9 +273,8 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                             Tag +
                         </button>
                     </div>
-
-
-                    {/* ✅ Menu d'autocomplétion des mentions */}
+    
+                    {/* Menu d'autocomplétion des mentions */}
                     <AnimatePresence>
                         {showMentionResults && mentionResults.length > 0 && (
                             <motion.div
@@ -273,42 +282,60 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                                 initial={{opacity: 0, y: -10}}
                                 animate={{opacity: 1, y: 0}}
                                 exit={{opacity: 0, y: -10}}
-                                className="absolute z-10 mt-1 bg-gray-800 rounded-lg shadow-lg border border-gray-700 w-64 max-h-64 overflow-y-auto"
+                                className={`absolute z-10 mt-1 rounded-lg shadow-lg border w-64 max-h-64 overflow-y-auto ${
+                                    isDarkMode 
+                                        ? 'bg-gray-800 border-gray-700' 
+                                        : 'bg-white border-gray-200'
+                                }`}
                             >
-                                <div className="p-2 text-sm text-gray-400 border-b border-gray-700">
+                                <div className={`p-2 text-sm border-b ${
+                                    isDarkMode 
+                                        ? 'text-gray-400 border-gray-700' 
+                                        : 'text-gray-600 border-gray-200'
+                                }`}>
                                     Utilisateurs trouvés
                                 </div>
                                 {mentionResults.map(user => (
                                     <div
                                         key={user.id}
-                                        className="p-2 hover:bg-purple-500/20 cursor-pointer flex items-center"
+                                        className={`p-2 cursor-pointer flex items-center ${
+                                            isDarkMode 
+                                                ? 'hover:bg-purple-500/20' 
+                                                : 'hover:bg-purple-50'
+                                        }`}
                                         onClick={() => insertMention(user.username)}
                                     >
-                                        <div
-                                            className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white mr-2">
+                                        <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white mr-2">
                                             {user.username[0].toUpperCase()}
                                         </div>
                                         <div>
-                                            <p className="text-white font-medium">{user.username}</p>
+                                            <p className={`font-medium ${
+                                                isDarkMode ? 'text-white' : 'text-gray-900'
+                                            }`}>
+                                                {user.username}
+                                            </p>
                                         </div>
                                     </div>
                                 ))}
                             </motion.div>
                         )}
                     </AnimatePresence>
-
-                    {/* ✅ Affichage des médias */}
+    
+                    {/* Affichage des médias */}
                     {mediaPreview && (
-                        <div
-                            className="relative mt-2 mb-3 rounded-xl overflow-hidden bg-gray-800 border border-gray-700">
+                        <div className={`relative mt-2 mb-3 rounded-xl overflow-hidden ${
+                            isDarkMode 
+                                ? 'bg-gray-800 border-gray-700' 
+                                : 'bg-gray-100 border-gray-200'
+                        } border`}>
                             <button
                                 type="button"
                                 onClick={removeMedia}
-                                className="absolute top-2 right-2 bg-gray-900/80 p-1 rounded-full text-white hover:bg-red-500 z-10"
+                                className="absolute top-2 right-2 bg-black/50 p-1 rounded-full text-white hover:bg-red-500 z-10"
                             >
                                 <FiX className="w-5 h-5"/>
                             </button>
-
+    
                             {mediaType === 'image' && (
                                 <img
                                     src={mediaPreview}
@@ -316,7 +343,7 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                                     className="max-h-80 w-auto mx-auto rounded-xl"
                                 />
                             )}
-
+    
                             {mediaType === 'video' && (
                                 <video
                                     src={mediaPreview}
@@ -326,8 +353,10 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                             )}
                         </div>
                     )}
-
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-800">
+    
+                    <div className={`flex items-center justify-between mt-3 pt-3 border-t ${
+                        isDarkMode ? 'border-gray-800' : 'border-gray-200'
+                    }`}>
                         <div className="flex items-center space-x-2">
                             <input
                                 type="file"
@@ -337,38 +366,48 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                                 className="hidden"
                                 id="media-upload"
                             />
-
+    
                             <motion.label
                                 htmlFor="media-upload"
                                 whileHover={{scale: 1.1}}
                                 whileTap={{scale: 0.95}}
-                                className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-full transition-colors cursor-pointer"
+                                className={`p-2 rounded-full transition-colors cursor-pointer ${
+                                    isDarkMode 
+                                        ? 'text-purple-400 hover:bg-purple-500/20' 
+                                        : 'text-purple-600 hover:bg-purple-100'
+                                }`}
                             >
                                 <FiImage className="w-5 h-5"/>
                             </motion.label>
-
+    
                             <motion.label
                                 htmlFor="media-upload"
                                 whileHover={{scale: 1.1}}
                                 whileTap={{scale: 0.95}}
-                                className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-full transition-colors cursor-pointer"
+                                className={`p-2 rounded-full transition-colors cursor-pointer ${
+                                    isDarkMode 
+                                        ? 'text-purple-400 hover:bg-purple-500/20' 
+                                        : 'text-purple-600 hover:bg-purple-100'
+                                }`}
                             >
                                 <FiVideo className="w-5 h-5"/>
                             </motion.label>
-
+    
                             <motion.button
                                 type="button"
                                 whileHover={{scale: 1.1}}
                                 whileTap={{scale: 0.95}}
-                                className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-full transition-colors"
+                                className={`p-2 rounded-full transition-colors ${
+                                    isDarkMode 
+                                        ? 'text-purple-400 hover:bg-purple-500/20' 
+                                        : 'text-purple-600 hover:bg-purple-100'
+                                }`}
                                 onClick={() => {
                                     if (textareaRef.current) {
                                         const start = textareaRef.current.selectionStart;
                                         const end = textareaRef.current.selectionEnd;
                                         const newContent = content.substring(0, start) + '@' + content.substring(end);
                                         setContent(newContent);
-
-                                        // Focus le textarea et place le curseur après le @
                                         setTimeout(() => {
                                             if (textareaRef.current) {
                                                 textareaRef.current.focus();
@@ -382,16 +421,20 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                             >
                                 <FiUser className="w-5 h-5"/>
                             </motion.button>
-
-                            <div className="h-8 w-[1px] bg-gray-800 mx-2"/>
-
+    
+                            <div className={`h-8 w-[1px] mx-2 ${
+                                isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+                            }`}/>
+    
                             <motion.div
                                 className={`flex items-center px-3 py-1 rounded-full ${
                                     content.length > 240
                                         ? 'bg-red-500/20 text-red-500'
                                         : content.length > 200
                                             ? 'bg-yellow-500/20 text-yellow-500'
-                                            : 'bg-purple-500/20 text-purple-400'
+                                            : isDarkMode
+                                                ? 'bg-purple-500/20 text-purple-400'
+                                                : 'bg-purple-100 text-purple-600'
                                 }`}
                                 initial={{scale: 0.8}}
                                 animate={{scale: 1}}
@@ -399,36 +442,32 @@ export const TweetForm: React.FC<TweetFormProps> = ({onSubmit}) => {
                             >
                                 {280 - content.length}
                             </motion.div>
-
-                            {/* ✅ Ajout du bouton "Tweeter" ici */}
+    
                             <motion.button
                                 type="submit"
                                 disabled={(!content.trim() && !mediaFile) || isSubmitting}
                                 whileHover={!isSubmitting && (content.trim() || mediaFile) ? {scale: 1.05} : {}}
                                 whileTap={!isSubmitting && (content.trim() || mediaFile) ? {scale: 0.95} : {}}
                                 className={`
-            px-6 py-2 rounded-full font-medium transition-all
-            ${(!content.trim() && !mediaFile) || isSubmitting
-                                    ? 'bg-purple-500/50 text-white/50 cursor-not-allowed'
-                                    : 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg hover:shadow-purple-500/25'}
-        `}
+                                    px-6 py-2 rounded-full font-medium transition-all
+                                    ${(!content.trim() && !mediaFile) || isSubmitting
+                                        ? 'bg-purple-500/50 text-white/50 cursor-not-allowed'
+                                        : 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg hover:shadow-purple-500/25'
+                                    }
+                                `}
                             >
                                 {isSubmitting ? (
                                     <div className="flex items-center">
-                                        <div
-                                            className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"/>
                                         <span>Envoi...</span>
                                     </div>
                                 ) : (
                                     'Tweeter'
                                 )}
                             </motion.button>
-
                         </div>
                     </div>
                 </div>
             </div>
         </motion.form>
-
-    );
-};
+    )};

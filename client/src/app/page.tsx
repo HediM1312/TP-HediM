@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import { getTweets, createTweet } from '@/services/api';
 
 const HomePage = () => {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, isDarkMode } = useAuth();
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,62 +66,59 @@ const handleTweetSubmit = async (content: string, mediaFile?: File, tags: string
     );
   };
 
-  // Afficher le loader pendant la vérification de l'auth
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
-        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  // Loader component
+  const Loader = () => (
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-white'} flex justify-center items-center`}>
+      <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
-  // Rediriger si non authentifié
-  if (!isAuthenticated) {
-    return null; // La redirection sera gérée par le useEffect
-  }
-
-  // Gérer l'état de chargement des tweets
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
-        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+  // Error component
+  const ErrorDisplay = () => (
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-white'} flex justify-center items-center`}>
+      <div className="text-red-500 flex flex-col items-center">
+        <p>{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-4 py-2 bg-purple-500 rounded-full text-white hover:bg-purple-600 transition-colors"
+        >
+          Réessayer
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // Gérer l'état d'erreur
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
-        <div className="text-red-500 flex flex-col items-center">
-          <p>{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-4 px-4 py-2 bg-purple-500 rounded-full text-white hover:bg-purple-600 transition-colors"
-          >
-            Réessayer
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading) return <Loader />;
+  if (!isAuthenticated) return null;
+  if (isLoading) return <Loader />;
+  if (error) return <ErrorDisplay />;
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
       <main className="max-w-2xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-md">
-            <div className="px-4 py-3 border-b border-gray-800">
-              <h1 className="text-xl font-bold text-white">Accueil</h1>
+          <div className={`sticky top-0 z-10 ${
+            isDarkMode 
+              ? 'bg-gray-900/80 border-gray-800' 
+              : 'bg-white/80 border-gray-200'
+          } backdrop-blur-md`}>
+            <div className={`px-4 py-3 border-b ${
+              isDarkMode ? 'border-gray-800' : 'border-gray-200'
+            }`}>
+              <h1 className={`text-xl font-bold ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>Accueil</h1>
             </div>
             <TweetForm onSubmit={handleTweetSubmit} />
           </div>
 
-          <div className="divide-y divide-gray-800">
+          <div className={`divide-y ${
+            isDarkMode ? 'divide-gray-800' : 'divide-gray-200'
+          }`}>
             {tweets.length > 0 ? (
               tweets.map(tweet => (
                 <motion.div
@@ -137,7 +134,9 @@ const handleTweetSubmit = async (content: string, mediaFile?: File, tags: string
                 </motion.div>
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+              <div className={`flex flex-col items-center justify-center py-8 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 <p className="text-xl font-semibold">Aucun tweet pour le moment</p>
                 <p className="mt-2">Soyez le premier à tweeter !</p>
               </div>

@@ -1,18 +1,34 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Notification } from '@/types';
 import { getNotifications, getUnreadNotificationsCount, markNotificationAsRead, markAllNotificationsAsRead } from '@/services/api';
 import Link from 'next/link';
-import { FiHeart, FiMessageCircle, FiRepeat, FiUserPlus } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiRepeat, FiUserPlus, FiBell } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface NotificationComponentsProps {
+  isDarkMode: boolean;
+}
+
+interface NotificationItemProps {
+  notification: Notification;
+  onMarkAsRead: (id: string) => void;
+  isDarkMode: boolean;
+}
+
+interface NotificationsPageProps {
+  isDarkMode: boolean;
+}
 
 // Composant pour l'icône de notification avec badge
-export const NotificationBell: React.FC = () => {
+export const NotificationBell: React.FC<NotificationComponentsProps> = ({ isDarkMode }) => {
   const [notificationCount, setNotificationCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Charger le nombre de notifications non lues
   useEffect(() => {
     const fetchNotificationCount = async () => {
       try {
@@ -24,14 +40,10 @@ export const NotificationBell: React.FC = () => {
     };
 
     fetchNotificationCount();
-    
-    // Actualiser le compteur toutes les 30 secondes
     const interval = setInterval(fetchNotificationCount, 30000);
-    
     return () => clearInterval(interval);
   }, []);
 
-  // Fermer la liste de notifications lorsqu'on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -45,7 +57,6 @@ export const NotificationBell: React.FC = () => {
     };
   }, []);
 
-  // Charger les notifications lorsque l'utilisateur ouvre le menu
   const handleToggleNotifications = async () => {
     const newState = !showNotifications;
     setShowNotifications(newState);
@@ -63,7 +74,6 @@ export const NotificationBell: React.FC = () => {
     }
   };
 
-  // Marquer toutes les notifications comme lues
   const handleMarkAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead();
@@ -74,7 +84,6 @@ export const NotificationBell: React.FC = () => {
     }
   };
 
-  // Marquer une notification comme lue
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await markNotificationAsRead(notificationId);
@@ -83,8 +92,6 @@ export const NotificationBell: React.FC = () => {
           notif.id === notificationId ? { ...notif, read: true } : notif
         )
       );
-      
-      // Mettre à jour le compteur
       const unreadCount = notifications.filter(
         notif => notif.id !== notificationId && !notif.read
       ).length;
@@ -98,78 +105,84 @@ export const NotificationBell: React.FC = () => {
     <div className="relative" ref={notificationRef}>
       <button
         onClick={handleToggleNotifications}
-        className="relative p-2 text-gray-700 hover:text-blue-500 focus:outline-none"
+        className={`relative p-2 transition-colors focus:outline-none ${
+          isDarkMode 
+            ? 'text-gray-400 hover:text-white' 
+            : 'text-gray-600 hover:text-purple-500'
+        }`}
         aria-label="Notifications"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
-        </svg>
+        <FiBell className="h-6 w-6" />
         
         {notificationCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full">
+          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-purple-500 rounded-full">
             {notificationCount > 99 ? '99+' : notificationCount}
           </span>
         )}
       </button>
 
-      {showNotifications && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
-          <div className="p-3 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Notifications</h3>
-            {notificationCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="text-sm text-blue-500 hover:text-blue-700"
-              >
-                Tout marquer comme lu
-              </button>
+      <AnimatePresence>
+        {showNotifications && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`absolute right-0 mt-2 w-80 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto ${
+              isDarkMode ? 'bg-gray-900' : 'bg-white'
+            }`}
+          >
+            <div className={`p-3 border-b flex justify-between items-center ${
+              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
+              <h3 className={`text-lg font-semibold ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Notifications
+              </h3>
+              {notificationCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className={`text-sm transition-colors ${
+                    isDarkMode 
+                      ? 'text-purple-400 hover:text-purple-300' 
+                      : 'text-purple-500 hover:text-purple-600'
+                  }`}
+                >
+                  Tout marquer comme lu
+                </button>
+              )}
+            </div>
+            
+            {loading ? (
+              <div className="p-4 flex justify-center">
+                <div className="spinner w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : notifications.length > 0 ? (
+              <div>
+                {notifications.map((notification) => (
+                  <NotificationItem 
+                    key={notification.id} 
+                    notification={notification} 
+                    onMarkAsRead={handleMarkAsRead}
+                    isDarkMode={isDarkMode}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className={`p-4 text-center ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                Aucune notification pour le moment.
+              </div>
             )}
-          </div>
-          
-          {loading ? (
-            <div className="p-4 flex justify-center">
-              <div className="spinner w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : notifications.length > 0 ? (
-            <div>
-              {notifications.map((notification) => (
-                <NotificationItem 
-                  key={notification.id} 
-                  notification={notification} 
-                  onMarkAsRead={handleMarkAsRead} 
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="p-4 text-center text-gray-500">
-              Aucune notification pour le moment.
-            </div>
-          )}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
 // Composant pour un élément de notification
-interface NotificationItemProps {
-  notification: Notification;
-  onMarkAsRead: (id: string) => void;
-}
-
-const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMarkAsRead }) => {
-  // Format de la date
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMarkAsRead, isDarkMode }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -190,7 +203,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
     return date.toLocaleDateString();
   };
 
-  // Obtenir l'icône en fonction du type de notification
   const getNotificationIcon = () => {
     switch (notification.type) {
       case 'like':
@@ -206,25 +218,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
     }
   };
 
-  // Déterminer le texte de la notification
   const getNotificationText = () => {
     switch (notification.type) {
       case 'like':
-        return (
-          <span> a aimé votre tweet</span>
-        );
+        return <span> a aimé votre tweet</span>;
       case 'comment':
-        return (
-          <span> a commenté votre tweet</span>
-        );
+        return <span> a commenté votre tweet</span>;
       case 'retweet':
-        return (
-          <span> a retweeté votre tweet</span>
-        );
+        return <span> a retweeté votre tweet</span>;
       case 'follow':
-        return (
-          <span> a commencé à vous suivre</span>
-        );
+        return <span> a commencé à vous suivre</span>;
       default:
         return null;
     }
@@ -236,7 +239,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
     }
   };
 
-  // Déterminer le lien en fonction du type de notification
   const notificationLink = notification.type === 'follow'
     ? `/profile/${notification.sender_username}`
     : `/tweet/${notification.tweet_id}`;
@@ -245,35 +247,43 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
     <Link 
       href={notificationLink}
       onClick={handleClick}
-      className={`block p-3 border-b border-gray-100 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50' : ''}`}
+      className={`block p-3 border-b transition-colors ${
+        isDarkMode 
+          ? `border-gray-700 ${!notification.read ? 'bg-purple-900/20' : ''} hover:bg-gray-800/50`
+          : `border-gray-200 ${!notification.read ? 'bg-purple-50' : ''} hover:bg-gray-50`
+      }`}
     >
       <div className="flex items-start">
         <div className="flex-shrink-0 mr-3">
-          <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+            isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+          }`}>
             {getNotificationIcon()}
           </div>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">
+          <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             <span className="font-bold">{notification.sender_username}</span>
             {getNotificationText()}
           </p>
           {notification.type !== 'follow' && notification.tweet_content && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               {notification.tweet_content}
             </p>
           )}
           {notification.type === 'comment' && notification.comment_content && (
-            <p className="text-xs text-gray-700 mt-1 italic">
+            <p className={`text-xs mt-1 italic ${
+              isDarkMode ? 'text-gray-300 bg-gray-800/50' : 'text-gray-700 bg-gray-100'
+            } p-2 rounded-lg`}>
               "{notification.comment_content}"
             </p>
           )}
-          <p className="text-xs text-gray-400 mt-1">
+          <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
             {formatDate(notification.created_at)}
           </p>
         </div>
         {!notification.read && (
-          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1"></div>
+          <div className="w-2 h-2 bg-purple-500 rounded-full mt-1"></div>
         )}
       </div>
     </Link>
@@ -281,7 +291,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
 };
 
 // Page de notifications complète
-export const NotificationsPage: React.FC = () => {
+export const NotificationsPage: React.FC<NotificationsPageProps> = ({ isDarkMode }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -291,8 +301,6 @@ export const NotificationsPage: React.FC = () => {
       try {
         const data = await getNotifications();
         setNotifications(data);
-        
-        // Marquer toutes les notifications comme lues automatiquement
         await markAllNotificationsAsRead();
       } catch (error) {
         console.error('Error fetching notifications:', error);
@@ -304,13 +312,11 @@ export const NotificationsPage: React.FC = () => {
     fetchNotifications();
   }, []);
 
-  // Format de date complet pour la page
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString();
   };
 
-  // Obtenir l'icône en fonction du type de notification
   const getNotificationIcon = (type: 'like' | 'comment' | 'retweet' | 'follow') => {
     switch (type) {
       case 'like':
@@ -327,55 +333,73 @@ export const NotificationsPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold p-4 border-b">Notifications</h1>
+    <div className={`max-w-2xl mx-auto ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+      <h1 className={`text-2xl font-bold p-4 border-b ${
+        isDarkMode 
+          ? 'text-white border-gray-700' 
+          : 'text-gray-900 border-gray-200'
+      }`}>
+        Notifications
+      </h1>
       
       {loading ? (
         <div className="p-8 flex justify-center">
-          <div className="spinner w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="spinner w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       ) : notifications.length > 0 ? (
-        <div className="divide-y">
+        <div className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
           {notifications.map((notification) => (
-            <div key={notification.id} className="p-4 hover:bg-gray-50">
+            <div key={notification.id} className={`p-4 transition-colors ${
+              isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'
+            }`}>
               <div className="flex">
                 <div className="flex-shrink-0 mr-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                  }`}>
                     {getNotificationIcon(notification.type)}
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p>
-                    <Link href={`/profile/${notification.sender_username}`} className="font-bold hover:underline">
+                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                    <Link 
+                      href={`/profile/${notification.sender_username}`} 
+                      className={`font-bold hover:underline ${
+                        isDarkMode ? 'text-purple-400' : 'text-purple-600'
+                      }`}
+                    >
                       {notification.sender_username}
                     </Link>
-                    {notification.type === 'like' && (
-                      <span> a aimé votre tweet</span>
-                    )}
-                    {notification.type === 'comment' && (
-                      <span> a commenté votre tweet</span>
-                    )}
-                    {notification.type === 'retweet' && (
-                      <span> a retweeté votre tweet</span>
-                    )}
-                    {notification.type === 'follow' && (
-                      <span> a commencé à vous suivre</span>
-                    )}
+                    {notification.type === 'like' && <span> a aimé votre tweet</span>}
+                    {notification.type === 'comment' && <span> a commenté votre tweet</span>}
+                    {notification.type === 'retweet' && <span> a retweeté votre tweet</span>}
+                    {notification.type === 'follow' && <span> a commencé à vous suivre</span>}
                   </p>
                   
                   {notification.type !== 'follow' && notification.tweet_id && (
-                    <Link href={`/tweet/${notification.tweet_id}`} className="block mt-1 text-gray-600 hover:underline">
+                    <Link 
+                      href={`/tweet/${notification.tweet_id}`} 
+                      className={`block mt-1 hover:underline ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}
+                    >
                       {notification.tweet_content}
                     </Link>
                   )}
                   
                   {notification.type === 'comment' && notification.comment_content && (
-                    <p className="mt-2 p-2 bg-gray-100 rounded-lg text-gray-700 italic">
+                    <p className={`mt-2 p-2 rounded-lg italic ${
+                      isDarkMode 
+                        ? 'bg-gray-800 text-gray-300' 
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
                       "{notification.comment_content}"
                     </p>
                   )}
                   
-                  <p className="text-xs text-gray-400 mt-2">
+                  <p className={`text-xs mt-2 ${
+                    isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
                     {formatDate(notification.created_at)}
                   </p>
                 </div>
@@ -384,7 +408,9 @@ export const NotificationsPage: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="p-8 text-center text-gray-500">
+        <div className={`p-8 text-center ${
+          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+        }`}>
           Aucune notification pour le moment.
         </div>
       )}

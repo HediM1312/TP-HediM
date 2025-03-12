@@ -7,12 +7,14 @@ import { useAuth } from '@/context/AppContext';
 interface FollowButtonProps {
   username: string;
   onFollowChange?: (following: boolean) => void;
+  isDarkMode?: boolean;
 }
 
-const FollowButton: React.FC<FollowButtonProps> = ({ username, onFollowChange }) => {
+const FollowButton: React.FC<FollowButtonProps> = ({ username, onFollowChange, isDarkMode = true }) => {
   const { user } = useAuth();
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   // Vérifier le statut initial
   useEffect(() => {
@@ -59,15 +61,31 @@ const FollowButton: React.FC<FollowButtonProps> = ({ username, onFollowChange })
     <button
       onClick={handleFollowToggle}
       disabled={isLoading}
-      className={`px-4 py-2 rounded-full font-medium transition-colors ${
-        isFollowing
-          ? 'bg-transparent border border-purple-500 text-purple-500 hover:bg-purple-500/10'
-          : 'bg-purple-500 text-white hover:bg-purple-600'
-      }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`
+        px-4 py-2 rounded-full font-medium transition-all
+        ${isLoading ? 'cursor-not-allowed opacity-75' : ''}
+        ${isFollowing
+          ? isDarkMode
+            ? `border ${isHovered 
+              ? 'border-red-500 bg-red-500/10 text-red-500' 
+              : 'border-gray-400 text-gray-400 hover:border-red-500'}`
+            : `border ${isHovered
+              ? 'border-red-500 bg-red-500/10 text-red-500'
+              : 'border-gray-600 text-gray-600 hover:border-red-500'}`
+          : isDarkMode
+            ? 'bg-purple-500 text-white hover:bg-purple-600'
+            : 'bg-purple-600 text-white hover:bg-purple-700'
+        }
+      `}
     >
       {isLoading ? (
         <span className="flex items-center justify-center">
-          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+          <svg 
+            className="animate-spin h-4 w-4 mr-2" 
+            viewBox="0 0 24 24"
+          >
             <circle
               className="opacity-25"
               cx="12"
@@ -75,17 +93,22 @@ const FollowButton: React.FC<FollowButtonProps> = ({ username, onFollowChange })
               r="10"
               stroke="currentColor"
               strokeWidth="4"
-            ></circle>
+            />
             <path
               className="opacity-75"
               fill="currentColor"
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
+            />
           </svg>
           <span>{isFollowing ? 'Désabonnement...' : 'Abonnement...'}</span>
         </span>
       ) : (
-        <span>{isFollowing ? 'Abonné' : 'S\'abonner'}</span>
+        <span>
+          {isFollowing 
+            ? (isHovered ? 'Se désabonner' : 'Abonné') 
+            : 'S\'abonner'
+          }
+        </span>
       )}
     </button>
   );
