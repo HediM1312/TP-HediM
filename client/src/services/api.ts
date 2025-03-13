@@ -65,10 +65,10 @@ export const uploadMedia = async (mediaFile: File) => {
 };
 
 export const createTweet = async (content: string, mediaFile?: File, tags: string[] = []) => {
-  console.log("📤 Tags envoyés dans createTweet :", tags);  // ✅ Vérifie ici aussi
+  console.log("📤 Tags envoyés dans createTweet :", tags);
 
   if (!mediaFile) {
-    const response = await api.post<Tweet>('/tweets', { content, tags });  // ✅ On ajoute bien les tags
+    const response = await api.post<Tweet>('/tweets', { content, tags });  // ✅ Envoi correct pour un tweet sans média
     return response.data;
   }
 
@@ -77,7 +77,10 @@ export const createTweet = async (content: string, mediaFile?: File, tags: strin
   formData.append('content', content);
   formData.append('media_id', mediaData.media_id);
   formData.append('media_type', mediaData.media_type);
-  formData.append('tags', JSON.stringify(tags));  // ✅ Envoi en JSON
+
+  if (tags.length > 0) {
+    formData.append('hashtags', tags.join(","));  // ✅ Correction ici
+  }
 
   const response = await axios.post<Tweet>(`${API_URL}/tweets/with-media`, formData, {
     headers: {
@@ -88,6 +91,7 @@ export const createTweet = async (content: string, mediaFile?: File, tags: strin
 
   return response.data;
 };
+
 
 export const getMediaUrl = (mediaId: string) => {
   return `${API_URL}/media/${mediaId}`;
