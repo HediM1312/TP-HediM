@@ -12,6 +12,13 @@ interface ReactionSummary {
 interface EmotionReactionsProps {
   tweetId: string;
   userReaction?: string;
+  reactionData?: {
+    reaction_count: number;
+    reactions: {
+      [key: string]: number;
+    };
+    user_reaction: string | null;
+  };
 }
 
 // Mapping des émotions vers les émojis
@@ -25,14 +32,22 @@ const emotionEmojis: { [key: string]: string } = {
   neutral: '😐'
 };
 
-const EmotionReactions: React.FC<EmotionReactionsProps> = ({ tweetId, userReaction }) => {
-  const [reactionSummary, setReactionSummary] = useState<ReactionSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+const EmotionReactions: React.FC<EmotionReactionsProps> = ({ tweetId, userReaction, reactionData }) => {
+  const [reactionSummary, setReactionSummary] = useState<ReactionSummary | null>(
+    reactionData ? {
+      tweet_id: tweetId,
+      reaction_count: reactionData.reaction_count,
+      reactions: reactionData.reactions
+    } : null
+  );
+  const [loading, setLoading] = useState(!reactionData);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchReactionSummary();
-  }, [tweetId, userReaction]);
+    if(!reactionData) {
+      fetchReactionSummary();
+    }
+  }, [tweetId, userReaction, reactionData]);
 
   const fetchReactionSummary = async () => {
     try {

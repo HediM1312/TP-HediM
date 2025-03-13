@@ -4,16 +4,23 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { TweetCard } from '@/components/TweetCard';
 import { TweetForm } from '@/components/TweetForm';
-import { Tweet } from '@/types';
+import { SearchBar } from '@/components/SearchBar';
+import { SearchResults } from '@/components/SearchResults';
+import { Tweet, User } from '@/types';
 import { useAuth } from '@/context/AppContext';
 import { motion } from 'framer-motion';
-import { getTweets, createTweet } from '@/services/api';
+import { getTweets, createTweet, search, getFeedData } from '@/services/api';
 
 const HomePage = () => {
   const { user, isAuthenticated, loading: authLoading, isDarkMode } = useAuth();
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{ users: User[], tweets: Tweet[] } | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
   const router = useRouter();
 
   // Redirection si non authentifié
@@ -25,13 +32,31 @@ const HomePage = () => {
 
   // Fetch tweets
   useEffect(() => {
+    // const fetchTweets = async () => {
+    //   if (!isAuthenticated) return;
+      
+    //   setIsLoading(true);
+    //   setError(null);
+    //   try {
+    //     const data = await getTweets();
+    //     setTweets(Array.isArray(data) ? data : []);
+    //   } catch (error) {
+    //     console.error('Error fetching tweets:', error);
+    //     setError('Failed to load tweets');
+    //     setTweets([]);
+    //   } finally {
+    //     setIsLoading(false);
+    //   }
+    // };
+
     const fetchTweets = async () => {
       if (!isAuthenticated) return;
       
       setIsLoading(true);
       setError(null);
       try {
-        const data = await getTweets();
+        // Utiliser la nouvelle fonction qui récupère tout en une seule requête
+        const data = await getFeedData();
         setTweets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching tweets:', error);
@@ -64,7 +89,35 @@ const handleTweetSubmit = async (content: string, mediaFile?: File, tags: string
     setTweets(prev =>
       prev.map(tweet => (tweet.id === updatedTweet.id ? updatedTweet : tweet))
     );
+
+    if (searchResults) {
+      setSearchResults({
+        ...searchResults,
+        tweets: searchResults.tweets.map(tweet =>
+          tweet.id === updatedTweet.id ? updatedTweet : tweet
+          )
+      });
+    }
   };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    setIsSearching(true);
+    try {
+      const results = await search(query);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error during search:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const clearSearchResults = () => {
+    setSearchResults(null);
+    setSearchQuery('');
+  };
+
 
   // Loader component
   const Loader = () => (
@@ -113,35 +166,61 @@ const handleTweetSubmit = async (content: string, mediaFile?: File, tags: string
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>Accueil</h1>
             </div>
-            <TweetForm onSubmit={handleTweetSubmit} />
-          </div>
-
-          <div className={`divide-y ${
-            isDarkMode ? 'divide-gray-800' : 'divide-gray-200'
-          }`}>
-            {tweets.length > 0 ? (
-              tweets.map(tweet => (
-                <motion.div
-                  key={tweet.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <TweetCard
-                    tweet={tweet}
-                    onTweetUpdate={handleTweetUpdate}
-                  />
-                </motion.div>
-              ))
-            ) : (
-              <div className={`flex flex-col items-center justify-center py-8 ${
-                isDarkMode ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                <p className="text-xl font-semibold">Aucun tweet pour le moment</p>
-                <p className="mt-2">Soyez le premier à tweeter !</p>
+            
+            {/* Search Bar */}
+            <div className={`px-4 py-3 border-b ${
+              isDarkMode ? 'border-gray-800' : 'border-gray-200'
+            }`}>
+              <SearchBar 
+                onSearch={handleSearch} 
+                isLoading={isSearching}
+              />
+            </div>
+            
+            {/* Display search results or tweet form */}
+            {searchResults ? (
+              <div className="p-4">
+                <SearchResults 
+                  results={searchResults}
+                  onTweetUpdate={handleTweetUpdate}
+                  onClear={clearSearchResults}
+                  query={searchQuery}
+                />
               </div>
+            ) : (
+              <TweetForm onSubmit={handleTweetSubmit} />
             )}
           </div>
+
+          {/* Show normal timeline if not searching */}
+          {!searchResults && (
+            <div className={`divide-y ${
+              isDarkMode ? 'divide-gray-800' : 'divide-gray-200'
+            }`}>
+              {tweets.length > 0 ? (
+                tweets.map(tweet => (
+                  <motion.div
+                    key={tweet.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <TweetCard
+                      tweet={tweet}
+                      onTweetUpdate={handleTweetUpdate}
+                    />
+                  </motion.div>
+                ))
+              ) : (
+                <div className={`flex flex-col items-center justify-center py-8 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  <p className="text-xl font-semibold">Aucun tweet pour le moment</p>
+                  <p className="mt-2">Soyez le premier à tweeter !</p>
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
       </main>
     </div>
