@@ -9,7 +9,7 @@ import { SearchResults } from '@/components/SearchResults';
 import { Tweet, User } from '@/types';
 import { useAuth } from '@/context/AppContext';
 import { motion } from 'framer-motion';
-import { getTweets, createTweet, search, getFeedData } from '@/services/api';
+import { getTweets, createTweet, search, getFeedData, getRecommendedTweets } from '@/services/api';
 
 const HomePage = () => {
   const { user, isAuthenticated, loading: authLoading, isDarkMode } = useAuth();
@@ -20,6 +20,8 @@ const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ users: User[], tweets: Tweet[] } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+
+  const [recommendedTweets, setRecommendedTweets] = useState<Tweet[]>([]);
 
   const router = useRouter();
 
@@ -51,6 +53,21 @@ const HomePage = () => {
     };
 
     fetchTweets();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const data = await getRecommendedTweets(3);
+        setRecommendedTweets(data);
+      } catch (error) {
+        console.error('Error fetching recommendations:', error);
+      }
+    };
+  
+    fetchRecommendations();
   }, [isAuthenticated]);
 
 const handleTweetSubmit = async (content: string, mediaFile?: File, tags: string[] = []) => {
@@ -202,6 +219,46 @@ const handleTweetSubmit = async (content: string, mediaFile?: File, tags: string
                   <p className="mt-2">Soyez le premier à tweeter !</p>
                 </div>
               )}
+            </div>
+          )}
+
+
+
+
+          {!searchResults && recommendedTweets.length > 0 && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              isDarkMode ? 'bg-gray-800' : 'bg-purple-50'
+            }`}>
+              <h2 className={`text-lg font-bold mb-2 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Recommandés pour vous
+              </h2>
+              <div className={`divide-y ${
+                isDarkMode ? 'divide-gray-700' : 'divide-gray-200'
+              }`}>
+                {recommendedTweets.map(tweet => (
+                  <motion.div
+                    key={tweet.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <TweetCard
+                      tweet={tweet}
+                      onTweetUpdate={handleTweetUpdate}
+                    />
+                  </motion.div>
+                ))}
+                <div className="pt-3">
+                  <button
+                    onClick={() => router.push('/recommended')}
+                    className="w-full py-2 text-center text-sm text-purple-500 hover:text-purple-600 transition-colors"
+                  >
+                    Voir plus de recommandations →
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </motion.div>

@@ -420,3 +420,8 @@ export const getTrendingHashtags = async (limit: number = 10) => {
   const response = await api.get<{ tag: string, count: number, sample_tweets: Tweet[] }[]>(`/trends?limit=${limit}`);
   return response.data;
 };
+
+export const getRecommendedTweets = async (limit: number = 10) => {
+  const response = await api.get(`/recommendations?limit=${limit}`);
+  return response.data;
+};
