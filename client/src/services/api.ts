@@ -415,3 +415,8 @@ export const getFeedData = async () => {
   const response = await api.get('/tweets/feed');
   return response.data;
 };
+
+export const getTrendingHashtags = async (limit: number = 10) => {
+  const response = await api.get<{ tag: string, count: number, sample_tweets: Tweet[] }[]>(`/trends?limit=${limit}`);
+  return response.data;
+};

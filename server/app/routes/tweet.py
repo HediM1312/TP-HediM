@@ -9,7 +9,7 @@ from app.models.like import Like
 from app.models.user import User
 from app.models.notification import Notification
 from app.services.auth import get_current_user
-from datetime import datetime
+from datetime import datetime, timedelta
 import base64
 import cv2
 import numpy as np
@@ -869,3 +869,49 @@ async def get_feed(current_user: User = Depends(get_current_user)):
         result.append(tweet_data)
     
     return result
+
+
+@router.get("/trends", response_model=List[Dict])
+async def get_trending_hashtags(limit: int = 10):
+    """
+    Récupère les hashtags en tendance (les plus utilisés dans les dernières 24h)
+    """
+    # Calculer la date d'il y a 24 heures
+    one_day_ago = datetime.utcnow() - timedelta(days=1)
+    
+    # Agréger les tags à partir des tweets des dernières 24 heures
+    pipeline = [
+        # Filtrer les tweets des dernières 24h qui ont des tags
+        {"$match": {
+            "created_at": {"$gte": one_day_ago},
+            "tags": {"$exists": True, "$ne": []}
+        }},
+        # Déconstruire le tableau tags pour traiter chaque tag individuellement
+        {"$unwind": "$tags"},
+        # Grouper par tag et compter
+        {"$group": {
+            "_id": "$tags",
+            "count": {"$sum": 1},
+            "tweets": {"$push": {"id": "$_id", "content": "$content"}}
+        }},
+        # Trier par nombre d'occurrences décroissant
+        {"$sort": {"count": -1}},
+        # Limiter le nombre de résultats
+        {"$limit": limit},
+        # Reformater pour la sortie
+        {"$project": {
+            "_id": 0,
+            "tag": "$_id",
+            "count": 1,
+            "sample_tweets": {"$slice": ["$tweets", 3]}  # Inclure quelques tweets d'exemple
+        }}
+    ]
+    
+    trends = list(db.tweets.aggregate(pipeline))
+    
+    # Transformer les ObjectId en strings pour la sérialisation JSON
+    for trend in trends:
+        for tweet in trend.get("sample_tweets", []):
+            tweet["id"] = str(tweet["id"])
+    
+    return trends

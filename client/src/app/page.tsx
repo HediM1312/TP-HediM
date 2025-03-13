@@ -32,23 +32,6 @@ const HomePage = () => {
 
   // Fetch tweets
   useEffect(() => {
-    // const fetchTweets = async () => {
-    //   if (!isAuthenticated) return;
-      
-    //   setIsLoading(true);
-    //   setError(null);
-    //   try {
-    //     const data = await getTweets();
-    //     setTweets(Array.isArray(data) ? data : []);
-    //   } catch (error) {
-    //     console.error('Error fetching tweets:', error);
-    //     setError('Failed to load tweets');
-    //     setTweets([]);
-    //   } finally {
-    //     setIsLoading(false);
-    //   }
-    // };
-
     const fetchTweets = async () => {
       if (!isAuthenticated) return;
       
