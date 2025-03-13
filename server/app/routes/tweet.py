@@ -915,3 +915,43 @@ async def get_trending_hashtags(limit: int = 10):
             tweet["id"] = str(tweet["id"])
     
     return trends
+
+@router.post("/tweets/{tweet_id}/bookmark")
+async def toggle_bookmark(tweet_id: str, current_user: User = Depends(get_current_user)):
+    """
+    Ajoute ou retire un tweet des favoris de l'utilisateur.
+    """
+    tweet = db.tweets.find_one({"_id": ObjectId(tweet_id)})
+    if not tweet:
+        raise HTTPException(status_code=404, detail="Tweet non trouvé")
+
+    existing_bookmark = db.bookmarks.find_one({"user_id": current_user.id, "tweet_id": tweet_id})
+
+    if existing_bookmark:
+        db.bookmarks.delete_one({"_id": existing_bookmark["_id"]})
+        return {"message": "Tweet retiré des favoris"}
+    else:
+        # Ajouter aux favoris
+        bookmark_data = {
+            "user_id": current_user.id,
+            "tweet_id": tweet_id,
+            "created_at": datetime.utcnow()
+        }
+        db.bookmarks.insert_one(bookmark_data)
+        return {"message": "Tweet ajouté aux favoris"}
+
+@router.get("/users/me/bookmarks")
+async def get_user_bookmarks(current_user: User = Depends(get_current_user)):
+    """
+    Récupère tous les tweets enregistrés en favoris par l'utilisateur.
+    """
+    bookmarks = list(db.bookmarks.find({"user_id": current_user.id}))
+    tweet_ids = [ObjectId(bm["tweet_id"]) for bm in bookmarks]
+
+    # Récupérer les tweets correspondants
+    tweets = list(db.tweets.find({"_id": {"$in": tweet_ids}}))
+    for tweet in tweets:
+        tweet["id"] = str(tweet["_id"])
+        del tweet["_id"]
+
+    return tweets

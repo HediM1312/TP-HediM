@@ -420,3 +420,65 @@ export const getTrendingHashtags = async (limit: number = 10) => {
   const response = await api.get<{ tag: string, count: number, sample_tweets: Tweet[] }[]>(`/trends?limit=${limit}`);
   return response.data;
 };
+
+export const toggleBookmark = async (tweetId: string) => {
+  try {
+    const response = await fetch(`http://localhost:8000/tweets/${tweetId}/bookmark`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors du basculement du favori');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Erreur lors de l’ajout/suppression du favori :', error);
+    throw error;
+  }
+};
+
+export const checkBookmarkStatus = async (tweetId: string) => {
+  try {
+    const response = await fetch(`http://localhost:8000/users/me/bookmarks`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors de la vérification du favori');
+    }
+
+    const bookmarks = await response.json();
+    return bookmarks.some((tweet: any) => tweet.id === tweetId);
+  } catch (error) {
+    console.error('Erreur lors de la vérification du favori :', error);
+    return false;
+  }
+};
+
+export const getUserBookmarkedTweets = async () => {
+  try {
+    const response = await fetch(`http://localhost:8000/users/me/bookmarks`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors de la récupération des favoris');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Erreur lors de la récupération des favoris:', error);
+    return [];
+  }
+};
