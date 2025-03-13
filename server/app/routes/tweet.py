@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 from bson import ObjectId
 from app.database import db, fs
 from app.models.tweet import TweetCreate, Tweet
@@ -207,7 +207,7 @@ async def read_tweets():
 
 
 @router.get("/tweets/{searchword}/search", response_model=List[Tweet])
-async def search_tweets(searchword: str):
+async def search_tweets(searchword: str, skip: int = 0, limit: int = 10):
     # Create a case-insensitive regex pattern for the search word
     regex_pattern = f".*{searchword}.*"
     regex_options = "i"  # Case-insensitive
@@ -223,7 +223,7 @@ async def search_tweets(searchword: str):
 
     # Fetch tweets matching the query
     tweets = []
-    for tweet in db.tweets.find(query).sort("created_at", -1).limit(10):
+    for tweet in db.tweets.find(query).sort("created_at", -1).skip(skip).limit(limit):
         # Convert MongoDB ObjectId to string and add it as "id"
         tweet["id"] = str(tweet["_id"])
         # Ensure the "tags" field exists, defaulting to an empty list if absent
@@ -234,7 +234,7 @@ async def search_tweets(searchword: str):
         tweets.append(Tweet(**tweet))
 
     if not tweets:
-        raise HTTPException(status_code=404, detail="No tweets found matching the search criteria")
+        return []
 
     return tweets
 
@@ -749,3 +749,123 @@ async def check_retweet_status(tweet_id: str, current_user: User = Depends(get_c
     })
 
     return {"retweeted": retweet is not None}
+
+
+@router.get("/tweets/feed", response_model=List[Dict])
+async def get_feed(current_user: User = Depends(get_current_user)):
+    """
+    Récupère le fil d'actualité avec toutes les informations nécessaires en une seule requête
+    """
+    # Récupérer les tweets
+    tweets = list(db.tweets.find().sort("created_at", -1).limit(50))
+    
+    # Préparer les IDs pour les opérations en batch
+    tweet_ids = [ObjectId(tweet["_id"]) for tweet in tweets]
+    tweet_ids_str = [str(tweet["_id"]) for tweet in tweets]
+    
+    # Récupérer tous les statuts de like en une seule requête
+    likes = {}
+    user_likes = list(db.likes.find({
+        "tweet_id": {"$in": tweet_ids_str},
+        "user_id": current_user.id
+    }))
+    for like in user_likes:
+        likes[like["tweet_id"]] = True
+    
+    # Récupérer tous les statuts de retweet en une seule requête
+    retweets = {}
+    user_retweets = list(db.tweets.find({
+        "original_tweet_id": {"$in": tweet_ids_str},
+        "author_id": current_user.id,
+        "is_retweet": True
+    }))
+    for retweet in user_retweets:
+        retweets[retweet["original_tweet_id"]] = True
+    
+    # Récupérer tous les résumés de réactions en une seule requête
+    reactions_summary = {}
+    all_reactions = list(db.emotion_reactions.aggregate([
+        {"$match": {"tweet_id": {"$in": tweet_ids}}},
+        {"$group": {
+            "_id": "$tweet_id",
+            "reaction_count": {"$sum": 1},
+            "reactions": {
+                "$push": {
+                    "emotion": "$emotion",
+                    "user_id": "$user_id"
+                }
+            }
+        }}
+    ]))
+    
+    for summary in all_reactions:
+        tweet_id = str(summary["_id"])
+        emotion_counts = {}
+        user_reaction = None
+        
+        for reaction in summary["reactions"]:
+            emotion = reaction["emotion"]
+            if emotion not in emotion_counts:
+                emotion_counts[emotion] = 0
+            emotion_counts[emotion] += 1
+            
+            if reaction["user_id"] == current_user.id:
+                user_reaction = emotion
+        
+        reactions_summary[tweet_id] = {
+            "reaction_count": summary["reaction_count"],
+            "reactions": emotion_counts,
+            "user_reaction": user_reaction
+        }
+    
+    # Récupérer les informations des utilisateurs
+    usernames = set()
+    for tweet in tweets:
+        usernames.add(tweet["author_username"])
+        if "original_author_username" in tweet:
+            usernames.add(tweet["original_author_username"])
+    
+    users_info = {}
+    for username in usernames:
+        user_data = db.users.find_one({"username": username})
+        if user_data:
+            users_info[username] = {
+                "id": str(user_data["_id"]),
+                "username": user_data["username"],
+                "profile_picture_id": user_data.get("profile_picture_id"),
+                "bio": user_data.get("bio")
+            }
+    
+    # Construire la réponse enrichie
+    result = []
+    for tweet in tweets:
+        tweet_id = str(tweet["_id"])
+        tweet_data = {
+            "id": tweet_id,
+            "content": tweet["content"],
+            "author_id": tweet["author_id"],
+            "author_username": tweet["author_username"],
+            "created_at": tweet["created_at"],
+            # Utiliser .get() avec valeur par défaut pour gérer les champs manquants
+            "like_count": tweet.get("like_count", 0),
+            "comment_count": tweet.get("comment_count", 0),
+            "retweet_count": tweet.get("retweet_count", 0),
+            "is_retweet": tweet.get("is_retweet", False),
+            "original_tweet_id": tweet.get("original_tweet_id"),
+            "original_author_username": tweet.get("original_author_username"),
+            "media_id": tweet.get("media_id"),
+            "media_type": tweet.get("media_type"),
+            "tags": tweet.get("tags", []),
+            # Informations ajoutées
+            "user_liked": likes.get(tweet_id, False),
+            "user_retweeted": retweets.get(tweet_id, False),
+            "reactions": reactions_summary.get(tweet_id, {"reaction_count": 0, "reactions": {}, "user_reaction": None}),
+            "author_info": users_info.get(tweet["author_username"])
+        }
+        
+        if tweet.get("original_author_username") and tweet["original_author_username"] in users_info:
+            tweet_data["original_author_info"] = users_info[tweet["original_author_username"]]
+        
+        result.append(tweet_data)
+    
+    return result

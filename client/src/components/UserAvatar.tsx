@@ -8,15 +8,22 @@ interface UserAvatarProps {
   username: string;
   size?: 'small' | 'medium' | 'large';
   className?: string;
+  userInfo?: {
+    id: string;
+    username: string;
+    profile_picture_id?: string;
+    bio?: string;
+  };
 }
 
 const UserAvatar: React.FC<UserAvatarProps> = ({ 
   username, 
   size = 'medium', 
-  className = '' 
+  className = '',
+  userInfo
 }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(userInfo || null);
+  const [loading, setLoading] = useState(!userInfo);
   const [error, setError] = useState(false);
 
   // Dimensions basées sur la taille
@@ -34,25 +41,28 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   };
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        setLoading(true);
-        const userData = await getUserByUsername(username);
-        if (userData) {
-          setUser(userData);
-        } else {
+    if(!userInfo){
+      const fetchUser = async () => {
+        try {
+          setLoading(true);
+          const userData = await getUserByUsername(username);
+          if (userData) {
+            setUser(userData);
+          } else {
+            setError(true);
+          }
+        } catch (error) {
+          console.error(`Erreur lors de la récupération de l'utilisateur ${username}:`, error);
           setError(true);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error(`Erreur lors de la récupération de l'utilisateur ${username}:`, error);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    fetchUser();
-  }, [username]);
+      fetchUser();
+    }
+
+  }, [username, userInfo]);
 
   // Si l'utilisateur a une photo de profil
   if (!loading && user?.profile_picture_id) {

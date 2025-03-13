@@ -18,9 +18,6 @@ export const CommentCard: React.FC<CommentCardProps> = ({ comment }) => {
     <div className="flex space-x-2 p-2 rounded-lg bg-gray-50">
       <div className="flex-shrink-0">
         <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-          {/* <span className="text-gray-600 font-bold text-sm">
-            {comment.author_username.charAt(0).toUpperCase()}
-          </span> */}
           <UserAvatar username={comment.author_username} size="small" />
         </div>
       </div>

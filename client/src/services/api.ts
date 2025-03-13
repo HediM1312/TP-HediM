@@ -384,3 +384,34 @@ export const getUserByUsername = async (username: string) => {
     return null;
   }
 };
+
+export const searchTweets = async (query: string) => {
+  if (!query || query.trim() === '') return [];
+  
+  const response = await api.get<Tweet[]>(`/tweets/${encodeURIComponent(query)}/search`);
+  return response.data;
+};
+
+export const search = async (query: string) => {
+  if (!query || query.trim() === '') {
+    return { users: [], tweets: [] };
+  }
+  
+  try {
+    // Search for both users and tweets in parallel
+    const [users, tweets] = await Promise.all([
+      searchUsers(query),
+      searchTweets(query)
+    ]);
+    
+    return { users, tweets };
+  } catch (error) {
+    console.error('Error performing search:', error);
+    return { users: [], tweets: [] };
+  }
+};
+
+export const getFeedData = async () => {
+  const response = await api.get('/tweets/feed');
+  return response.data;
+};

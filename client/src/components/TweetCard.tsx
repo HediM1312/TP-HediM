@@ -18,14 +18,17 @@ interface TweetCardProps {
 
 export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) => {
   const { user, isDarkMode } = useAuth();
-  const [isLiked, setIsLiked] = useState(false);
+
+  const [isLiked, setIsLiked] = useState(tweet.user_liked || false);
   const [likeCount, setLikeCount] = useState(tweet.like_count);
   const [showComments, setShowComments] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showWebcam, setShowWebcam] = useState(false);
-  const [userReaction, setUserReaction] = useState<string | undefined>(undefined);
+  const [userReaction, setUserReaction] = useState<string | undefined>(
+    tweet.reactions?.user_reaction
+    );
   const [isReacting, setIsReacting] = useState(false);
-  const [isRetweeted, setIsRetweeted] = useState(false);
+  const [isRetweeted, setIsRetweeted] = useState(tweet.user_retweeted || false);
   const [retweetCount, setRetweetCount] = useState(tweet.retweet_count || 0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
 
@@ -81,32 +84,32 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
   };
 
   // Vérifier le statut de like au chargement
-  useEffect(() => {
-    const checkLiked = async () => {
-      try {
-        const response = await checkLikeStatus(tweet.id);
-        setIsLiked(response.liked);
-      } catch (error) {
-        console.error('Error checking like status:', error);
-      }
-    };
+  // useEffect(() => {
+  //   const checkLiked = async () => {
+  //     try {
+  //       const response = await checkLikeStatus(tweet.id);
+  //       setIsLiked(response.liked);
+  //     } catch (error) {
+  //       console.error('Error checking like status:', error);
+  //     }
+  //   };
 
-    checkLiked();
-    fetchUserReaction();
-  }, [tweet.id]);
+  //   checkLiked();
+  //   fetchUserReaction();
+  // }, [tweet.id]);
 
-  useEffect(() => {
-    const checkRetweeted = async () => {
-      try {
-        const response = await checkRetweetStatus(tweet.id);
-        setIsRetweeted(response.retweeted);
-      } catch (error) {
-        console.error('Error checking retweet status:', error);
-      }
-    };
+  // useEffect(() => {
+  //   const checkRetweeted = async () => {
+  //     try {
+  //       const response = await checkRetweetStatus(tweet.id);
+  //       setIsRetweeted(response.retweeted);
+  //     } catch (error) {
+  //       console.error('Error checking retweet status:', error);
+  //     }
+  //   };
   
-    checkRetweeted();
-  }, [tweet.id]);
+  //   checkRetweeted();
+  // }, [tweet.id]);
 
   const handleRetweetToggle = async () => {
     setIsLoading(true);
@@ -266,7 +269,7 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
 
       <div className="flex">
         <div className="flex-shrink-0">
-          <UserAvatar username={tweet.author_username} size="medium" className="rounded-xl" />
+          <UserAvatar username={tweet.author_username} size="medium" className="rounded-xl" userInfo={tweet.author_info} />
         </div>
 
         <div className="ml-3 flex-grow">
@@ -345,7 +348,7 @@ export const TweetCard: React.FC<TweetCardProps> = ({ tweet, onTweetUpdate }) =>
           )}
 
           <div className="mt-2">
-            <EmotionReactions tweetId={tweet.id} userReaction={userReaction} />
+            <EmotionReactions tweetId={tweet.id} userReaction={userReaction} reactionData={tweet.reactions} />
           </div>
 
           <div className="mt-3 flex space-x-6">
