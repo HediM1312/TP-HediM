@@ -11,7 +11,7 @@ import FollowersList from '@/components/FollowersList';
 import FollowingList from '@/components/FollowingList';
 import ProfileEditor from '@/components/ProfileEditor';
 import {FiEdit} from 'react-icons/fi';
-import { getUserBookmarkedTweets } from '@/services/api';
+import {getUserBookmarkedTweets} from '@/services/api';
 
 
 type TabType = 'tweets' | 'likes' | 'retweets' | 'bookmarks';
@@ -371,7 +371,7 @@ export default function ProfilePage({username}: { username: string }) {
 
             {/* Onglets de navigation */}
             <div className={`flex border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                {['tweets', 'likes', 'retweets', 'bookmarks'].map((tab) => (
+                {['tweets', 'likes', 'retweets'].map((tab) => (
                     <button
                         key={tab}
                         onClick={() => handleTabChange(tab as TabType)}
@@ -383,9 +383,25 @@ export default function ProfilePage({username}: { username: string }) {
                                     : 'text-gray-600 hover:text-gray-900'
                         }`}
                     >
-                        {tab === 'tweets' ? 'Tweets' : tab === 'likes' ? "J'aime" : tab === 'retweets' ? 'Retweets' : 'Favoris'}
+                        {tab === 'tweets' ? 'Tweets' : tab === 'likes' ? "J'aime" : 'Retweets'}
                     </button>
                 ))}
+
+                {/*Afficher l'onglet Favoris que si l'utilisateur regarde son propre profil*/}
+                {isOwnProfile && (
+                    <button
+                        onClick={() => handleTabChange('bookmarks' as TabType)}
+                        className={`flex-1 py-3 text-center font-medium transition-colors ${
+                            activeTab === 'bookmarks'
+                                ? 'text-purple-500 border-b-2 border-purple-500'
+                                : isDarkMode
+                                    ? 'text-gray-400 hover:text-white'
+                                    : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                        Favoris
+                    </button>
+                )}
             </div>
 
 
