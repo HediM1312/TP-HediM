@@ -482,3 +482,9 @@ export const getUserBookmarkedTweets = async () => {
     return [];
   }
 };
+
+
+export const getRecommendedTweets = async (limit: number = 10) => {
+  const response = await api.get(`/recommendations?limit=${limit}`);
+  return response.data;
+};

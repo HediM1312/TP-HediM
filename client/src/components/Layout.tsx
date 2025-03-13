@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { FiHome, FiUser, FiBell, FiLogOut, FiSun, FiMoon, FiHash } from 'react-icons/fi';
+import { FiHome, FiUser, FiBell, FiLogOut, FiSun, FiMoon, FiHash, FiZap } from 'react-icons/fi';
 import { useAuth } from '@/context/AppContext';
 import { motion } from 'framer-motion';
 
@@ -22,14 +22,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       href: '/',
     },
     {
-      icon: FiBell,
-      label: 'Notifications',
-      href: '/notification',
+      icon: FiZap,
+      label: 'Recommandations',
+      href: '/recommended',
     },
     {
       icon: FiHash,
       label: 'Tendances',
       href: '/trends',
+    },
+    {
+      icon: FiBell,
+      label: 'Notifications',
+      href: '/notification',
     },
     {
       icon: FiUser,

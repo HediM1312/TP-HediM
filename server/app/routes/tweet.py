@@ -916,6 +916,190 @@ async def get_trending_hashtags(limit: int = 10):
     
     return trends
 
+@router.get("/recommendations", response_model=List[Dict])
+async def get_tweet_recommendations(limit: int = 10, current_user: User = Depends(get_current_user)):
+    """
+    Obtient des recommandations de tweets pour l'utilisateur en fonction de ses likes
+    """
+    # 1. Récupérer les tweets que l'utilisateur a aimés
+    user_likes = list(db.likes.find({"user_id": current_user.id}))
+    liked_tweet_ids = [ObjectId(like["tweet_id"]) for like in user_likes]
+
+    if not liked_tweet_ids:
+        # Si l'utilisateur n'a pas de likes, retourner les tweets les plus populaires
+        popular_tweets = list(db.tweets.find().sort("like_count", -1).limit(limit))
+        return _format_tweets_for_response(popular_tweets, current_user.id)
+
+    # 2. Récupérer ces tweets aimés pour analyser les tags et auteurs
+    liked_tweets = list(db.tweets.find({"_id": {"$in": liked_tweet_ids}}))
+
+    # 3. Extraire les tags préférés
+    user_preferred_tags = []
+    for tweet in liked_tweets:
+        if "tags" in tweet and tweet["tags"]:
+            user_preferred_tags.extend(tweet["tags"])
+
+    # Compter la fréquence des tags
+    tag_counter = {}
+    for tag in user_preferred_tags:
+        if tag:  # S'assurer que le tag n'est pas None ou vide
+            tag_counter[tag] = tag_counter.get(tag, 0) + 1
+
+    # Prendre les 5 tags les plus fréquents
+    top_tags = sorted(tag_counter.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_tag_names = [tag[0] for tag in top_tags]
+
+    # 4. Extraire les auteurs préférés
+    user_preferred_authors = []
+    for tweet in liked_tweets:
+        user_preferred_authors.append(tweet["author_id"])
+
+    # Compter la fréquence des auteurs
+    author_counter = {}
+    for author_id in user_preferred_authors:
+        author_counter[author_id] = author_counter.get(author_id, 0) + 1
+
+    # Prendre les 3 auteurs les plus fréquents
+    top_authors = sorted(author_counter.items(), key=lambda x: x[1], reverse=True)[:3]
+    top_author_ids = [author[0] for author in top_authors]
+
+    # 5. Trouver des tweets similaires (par tags ou auteurs)
+    # Exclure les tweets que l'utilisateur a déjà likés
+    query = {
+        "_id": {"$nin": liked_tweet_ids},  # Ne pas recommander des tweets déjà aimés
+        "author_id": {"$ne": current_user.id},  # Ne pas recommander ses propres tweets
+        "$or": [
+            {"tags": {"$in": top_tag_names}},  # Tweets avec des tags similaires
+            {"author_id": {"$in": top_author_ids}}  # Tweets des auteurs préférés
+        ]
+    }
+
+    # 6. Ajouter un champ calculé pour le score de recommandation
+    pipeline = [
+        {"$match": query},
+        # S'assurer que le champ tags existe et est un tableau
+        {"$addFields": {
+            "tags": {"$ifNull": ["$tags", []]}
+        }},
+        {"$addFields": {
+            "tag_match_count": {
+                "$size": {
+                    "$ifNull": [
+                        {"$setIntersection": ["$tags", top_tag_names]},
+                        []
+                    ]
+                }
+            },
+            "author_preferred": {
+                "$cond": [
+                    {"$in": ["$author_id", top_author_ids]},
+                    1,
+                    0
+                ]
+            }
+        }},
+        {"$addFields": {
+            "recommendation_score": {
+                "$sum": [
+                    {"$multiply": ["$tag_match_count", 3]},  # 3 points par tag correspondant
+                    {"$multiply": ["$author_preferred", 5]}, # 5 points si l'auteur est préféré
+                    {"$ifNull": [{"$divide": ["$like_count", 10]}, 0]},        # 0.1 point par like
+                    {"$ifNull": [{"$divide": ["$retweet_count", 20]}, 0]},     # 0.05 point par retweet
+                    {"$ifNull": [{"$divide": ["$comment_count", 30]}, 0]}      # 0.033 point par commentaire
+                ]
+            }
+        }},
+        {"$sort": {"recommendation_score": -1}},
+        {"$limit": limit}
+    ]
+
+    recommended_tweets = list(db.tweets.aggregate(pipeline))
+
+    # 7. Formater les tweets pour la réponse
+    return _format_tweets_for_response(recommended_tweets, current_user.id)
+
+def _format_tweets_for_response(tweets, user_id):
+    """Formatage des tweets pour la réponse API avec infos supplémentaires"""
+    result = []
+
+    # Récupérer les ids de tweets pour des opérations en batch
+    tweet_ids = [tweet["_id"] for tweet in tweets]
+    tweet_ids_str = [str(tweet["_id"]) for tweet in tweets]
+
+    # Vérifier les likes de l'utilisateur en une requête
+    user_likes = list(db.likes.find({
+        "tweet_id": {"$in": tweet_ids_str},
+        "user_id": user_id
+    }))
+    liked_tweet_ids = [like["tweet_id"] for like in user_likes]
+
+    # Vérifier les retweets de l'utilisateur en une requête
+    user_retweets = list(db.tweets.find({
+        "original_tweet_id": {"$in": tweet_ids_str},
+        "author_id": user_id,
+        "is_retweet": True
+    }))
+    retweeted_tweet_ids = [retweet["original_tweet_id"] for retweet in user_retweets]
+
+    # Récupérer les infos utilisateurs pour tous les auteurs en une requête
+    author_ids = set()
+    for tweet in tweets:
+        author_ids.add(tweet["author_id"])
+
+    authors = {}
+    for author in db.users.find({"_id": {"$in": list(author_ids)}}):
+        authors[str(author["_id"])] = {
+            "id": str(author["_id"]),
+            "username": author["username"],
+            "profile_picture_id": author.get("profile_picture_id"),
+            "bio": author.get("bio")
+        }
+
+    # Formater chaque tweet
+    for tweet in tweets:
+        tweet_id = str(tweet["_id"])
+
+        # Construire l'objet tweet pour la réponse
+        formatted_tweet = {
+            "id": tweet_id,
+            "content": tweet["content"],
+            "author_id": tweet["author_id"],
+            "author_username": tweet["author_username"],
+            "created_at": tweet["created_at"],
+            "like_count": tweet.get("like_count", 0),
+            "comment_count": tweet.get("comment_count", 0),
+            "retweet_count": tweet.get("retweet_count", 0),
+            "is_retweet": tweet.get("is_retweet", False),
+            "media_id": tweet.get("media_id"),
+            "media_type": tweet.get("media_type"),
+            "tags": tweet.get("tags", []),
+            # Statuts spécifiques à l'utilisateur
+            "user_liked": tweet_id in liked_tweet_ids,
+            "user_retweeted": tweet_id in retweeted_tweet_ids,
+            # Infos auteur
+            "author_info": authors.get(tweet["author_id"])
+        }
+
+        # Ajouter des métadonnées de recommandation si disponibles
+        if "recommendation_score" in tweet:
+            recommendation_reasons = []
+
+            if "tag_match_count" in tweet and tweet["tag_match_count"] > 0:
+                tag_matches = ", ".join([f"#{tag}" for tag in tweet.get("tags", [])[:2]])
+                recommendation_reasons.append(f"Tags similaires: {tag_matches}")
+
+            if "author_preferred" in tweet and tweet["author_preferred"] > 0:
+                recommendation_reasons.append(f"Auteur que vous aimez: @{tweet['author_username']}")
+
+            formatted_tweet["recommendation_info"] = {
+                "score": tweet["recommendation_score"],
+                "reasons": recommendation_reasons
+            }
+
+        result.append(formatted_tweet)
+
+    return result
+
 @router.post("/tweets/{tweet_id}/bookmark")
 async def toggle_bookmark(tweet_id: str, current_user: User = Depends(get_current_user)):
     """
