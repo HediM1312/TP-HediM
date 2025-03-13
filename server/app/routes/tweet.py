@@ -188,6 +188,38 @@ async def read_tweets():
 
     return tweets
 
+@router.get("/tweets/{searchword}/search", response_model=List[Tweet])
+async def search_tweets(searchword: str):
+    # Create a case-insensitive regex pattern for the search word
+    regex_pattern = f".*{searchword}.*"
+    regex_options = "i"  # Case-insensitive
+
+    # Query to search across content, author_username, and tags
+    query = {
+        "$or": [
+            {"content": {"$regex": regex_pattern, "$options": regex_options}},
+            {"author_username": {"$regex": regex_pattern, "$options": regex_options}},
+            {"tags": {"$regex": regex_pattern, "$options": regex_options}}
+        ]
+    }
+
+    # Fetch tweets matching the query
+    tweets = []
+    for tweet in db.tweets.find(query).sort("created_at", -1).limit(10):
+        # Convert MongoDB ObjectId to string and add it as "id"
+        tweet["id"] = str(tweet["_id"])
+        # Ensure the "tags" field exists, defaulting to an empty list if absent
+        tweet["tags"] = tweet.get("tags", [])
+        # Remove the MongoDB "_id" field
+        del tweet["_id"]
+        # Append the tweet to the list after validating it with the Tweet model
+        tweets.append(Tweet(**tweet))
+
+    if not tweets:
+        raise HTTPException(status_code=404, detail="No tweets found matching the search criteria")
+
+    return tweets
+
 @router.get("/tweets/{tweet_id}/like_status")
 async def check_like_status(tweet_id: str, current_user: User = Depends(get_current_user)):
     like = db.likes.find_one({
