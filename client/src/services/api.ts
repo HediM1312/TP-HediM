@@ -2,9 +2,9 @@ import axios from 'axios';
 import { Tweet, User, Like, Comment, Follow } from '@/types';
 import { EmotionReaction, EmotionReactionSummary } from '@/types';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://backend:8000';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -437,7 +437,7 @@ export const toggleBookmark = async (tweetId: string) => {
 
     return await response.json();
   } catch (error) {
-    console.error('Erreur lors de l’ajout/suppression du favori :', error);
+    console.error("Erreur lors de l'ajout/suppression du favori :", error);
     throw error;
   }
 };

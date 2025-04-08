@@ -1,4 +1,4 @@
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 import os
 from dotenv import load_dotenv
 import gridfs
@@ -7,8 +7,8 @@ import gridfs
 load_dotenv()
 
 # Connexion MongoDB
-MONGO_URI = "mongodb+srv://user:1234@cluster0.hsa1yir.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-client = MongoClient(MONGO_URI)
-db = client["twitter_clone"]
+MONGO_URL = "mongodb://mongodb:27017"
+client = AsyncIOMotorClient(MONGO_URL)
+db = client.twitter_db
 
 fs = gridfs.GridFS(db, collection="media")
